@@ -16,18 +16,21 @@ main() {
             ;;
     esac
 
-    case "$TARGET" in 
-      *windows*) binary="px.exe" ;;
+    case "$TARGET" in
+        *windows*) binary="px.exe" ;;
     esac
 
     test -f Cargo.lock || cargo generate-lockfile
 
     cross rustc --package pax --bin px --target $TARGET --release -- -C lto
-    
+
     cp target/$TARGET/release/$binary $stage/
 
     cd $stage
-    tar czf $src/chromy-$CRATE_NAME-$TRAVIS_TAG-$TARGET.tar.gz *
+    case $TARGET in
+        *windows*) zip -r $src/$CRATE_NAME-$TRAVIS_TAG-$TARGET.zip * ;;
+        *) tar czf $src/$CRATE_NAME-$TRAVIS_TAG-$TARGET.tar.gz * ;;
+    esac
     cd $src
 
     rm -rf $stage
