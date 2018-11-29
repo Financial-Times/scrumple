@@ -3,9 +3,10 @@
 set -ex
 
 main() {
-    local src=$(pwd) \
-          binary=px \
-          stage=
+    local src=$(pwd)
+    local binary=px
+    local stage=
+    local base="$src/$TRAVIS_TAG-$TARGET"
 
     case $TRAVIS_OS_NAME in
         linux)
@@ -28,8 +29,8 @@ main() {
 
     cd $stage
     case $TARGET in
-        *windows*) zip -r $src/$CRATE_NAME-$TRAVIS_TAG-$TARGET.zip * ;;
-        *) tar czf $src/$CRATE_NAME-$TRAVIS_TAG-$TARGET.tar.gz * ;;
+        *windows*) zip -r "$base.zip" * ;;
+        *) tar czf "$base.tar.gz" * ;;
     esac
     cd $src
 
