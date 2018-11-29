@@ -100,8 +100,9 @@ deploy:
   file_glob: true
   file: $TRAVIS_TAG-$TARGET.*
   on:
-    condition: $TRAVIS_RUST_VERSION = stable
-    tags: true
+    rust: stable
+    all_branches: true
+    condition: $TRAVIS_TAG = pax-*
   provider: releases
   skip_cleanup: true
   draft: true
