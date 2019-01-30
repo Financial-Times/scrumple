@@ -297,7 +297,16 @@ impl<'a, 'b> Writer<'a, 'b> {
         let mut comma = false;
         for (name, resolved) in deps {
             match *resolved {
-                Resolved::External => {}
+                Resolved::External => {
+                }
+                Resolved::Empty => {
+                    if comma {
+                        result.push(',');
+                    }
+                    result.push_str(&to_quoted_json_string(name));
+                    result.push_str(": Pax.emptyModule");
+                    comma = true;
+                }
                 Resolved::Normal(ref path) => {
                     if comma {
                         result.push(',');
@@ -442,12 +451,14 @@ pub struct Source {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Resolved {
     External,
+    Empty,
     // CoreWithSubst(PathBuf),
     Normal(PathBuf),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct InputOptions {
+    pub browser: bool,
     pub es6_syntax: bool,
     pub es6_syntax_everywhere: bool,
     pub external: FnvHashSet<String>,
@@ -523,6 +534,7 @@ pub fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map
                 }
                 match resolved {
                     Resolved::External => {}
+                    Resolved::Empty => {}
                     Resolved::Normal(module) => {
                         modules.entry(module.clone()).or_insert_with(|| {
                             worker.add_work(Work::Include { module });
@@ -613,6 +625,7 @@ fn run() -> Result<(), CliError> {
     let mut no_map = false;
     let mut watch = false;
     let mut quiet_watch = false;
+    let mut browser = false;
     let mut external = FnvHashSet::default();
 
     let mut iter = opts::args();
@@ -659,6 +672,7 @@ fn run() -> Result<(), CliError> {
                     external.insert(m.to_string());
                 }
             }
+            "-b" | "--browser" => browser = true,
             "-m" | "--map" => {
                 if map.is_some() {
                     return Err(CliError::DuplicateOption(opt))
@@ -716,6 +730,7 @@ fn run() -> Result<(), CliError> {
         es6_syntax,
         es6_syntax_everywhere,
         external,
+        browser,
     };
 
     let entry_point = Worker::resolve_main(&input_options, input_dir, &input)?;
@@ -855,6 +870,9 @@ Options:
     --external-core
         Ignore references to node.js core modules like 'events' and leave them
         as require('<module>') references in the bundle.
+
+    -b, --browser
+        Browser
 
     -h, --help
         Print this message.
@@ -1102,6 +1120,88 @@ impl PathExt for Path {
     }
 }
 
+trait ApplyAlternates {
+    fn apply(&self, p: PathBuf) -> PathBuf;
+    fn should_ignore_module(&self, name: &str) -> bool;
+    fn should_shim_module(&self, name: &str) -> Option<&str>;
+}
+
+#[derive(Debug)]
+struct ModuleAlternates {
+    root: PathBuf,
+    alt_modules: FnvHashMap<PathBuf, PathBuf>,
+    shim_modules: FnvHashMap<String, String>,
+    ignored: FnvHashSet<String>,
+}
+
+impl ModuleAlternates {
+    fn new(root: PathBuf) -> Self {
+        ModuleAlternates{
+            root: root,
+            alt_modules: FnvHashMap::<PathBuf, PathBuf>::default(),
+            shim_modules: FnvHashMap::<String, String>::default(),
+            ignored: FnvHashSet::<String>::default(),
+        }
+    }
+
+    fn add_alt(&mut self, src: &Path, tgt: &Path) {
+        let mut canonical_src = self.root.clone();
+        canonical_src.append_resolving(src);
+        let mut canonical_tgt = self.root.clone();
+        canonical_tgt.append_resolving(tgt);
+        self.alt_modules.insert(canonical_src, canonical_tgt);
+    }
+
+    fn add_ignored_module(&mut self, name: String) {
+        self.ignored.insert(name);
+    }
+
+    fn add_shim_module(&mut self, src: String, tgt: String) {
+        self.shim_modules.insert(src, tgt);
+    }
+}
+
+impl ApplyAlternates for ModuleAlternates {
+    fn apply(&self, p: PathBuf) -> PathBuf {
+        match self.alt_modules.get(&p) {
+            None => p,
+            Some(tgt) => tgt.clone(),
+        }
+    }
+
+    fn should_ignore_module(&self, name: &str) -> bool {
+        return self.ignored.contains(name);
+    }
+
+    fn should_shim_module(&self, name: &str) -> Option<&str> {
+        return self.shim_modules.get(name).map(String::as_str);
+    }
+}
+
+#[derive(Debug)]
+struct NullModuleAlternates {
+}
+
+impl NullModuleAlternates {
+    fn new() -> Self {
+        NullModuleAlternates{}
+    }
+}
+
+impl ApplyAlternates for NullModuleAlternates {
+    fn apply(&self, p: PathBuf) -> PathBuf {
+        return p;
+    }
+
+    fn should_ignore_module(&self, _name: &str) -> bool {
+        return false;
+    }
+
+    fn should_shim_module(&self, _name: &str) -> Option<&str> {
+        return None;
+    }
+}
+
 impl Worker {
     fn run(mut self) {
         while let Some(work) = self.get_work() {
@@ -1169,6 +1269,16 @@ impl Worker {
                 return Ok(Resolved::External)
             }
 
+            let alternates = Self::get_alternates(&self.input_options, &context)?;
+            if alternates.should_ignore_module(name) {
+                return Ok(Resolved::Empty)
+            }
+
+            match alternates.should_shim_module(name) {
+                Some(shim) => return self.resolve(context, shim),
+                _ => {}
+            }
+
             let mut suffix = PathBuf::from("node_modules");
             suffix.push(name);
 
@@ -1190,6 +1300,7 @@ impl Worker {
             })
         }
     }
+
     fn resolve_path_or_module(input_options: &InputOptions, context: Option<&Path>, mut path: PathBuf) -> Result<Option<PathBuf>, CliError> {
         path.push("package.json");
         let result = fs::File::open(&path);
@@ -1216,16 +1327,23 @@ impl Worker {
                     #[serde(default)]
                     main: Value,
 
+                    #[serde(default)]
+                    browser: Value,
+
                     // Efficiently skip deserializing other fields.
                 }
 
                 let result: Package = serde_json::from_str(&string)?;
-                match result.main.as_str() {
-                    None => {
-                        // Do nothing if `main` is not present or not a string.
-                    }
-                    Some(main) => {
-                        path.append_resolving(main);
+                if input_options.browser && result.browser.is_string() {
+                    path.append_resolving(result.browser.as_str().unwrap());
+                } else {
+                    match result.main.as_str() {
+                        None => {
+                            // Do nothing if `main` is not present or not a string.
+                        }
+                        Some(main) => {
+                            path.append_resolving(main);
+                        }
                     }
                 }
             },
@@ -1238,65 +1356,155 @@ impl Worker {
         Self::resolve_path(input_options, context, path)
     }
 
-    fn resolve_path(input_options: &InputOptions, context: Option<&Path>, mut path: PathBuf) -> Result<Option<PathBuf>, CliError> {
-        // <path>
-        if path.is_file() {
-            return Ok(Some(path))
-        }
+    fn extract_browser_alternates(path: &Path) -> Result<Box<ApplyAlternates>, CliError> {
+        let result = fs::File::open(&path);
+        match result {
+            Ok(file) => {
+                let string = {
+                    let mut buf_reader = io::BufReader::new(file);
+                    let mut bytes = Vec::new();
+                    buf_reader.read_to_end(&mut bytes)?;
+                    match String::from_utf8(bytes) {
+                        Ok(s) => s,
+                        Err(err) => {
+                            return Err(CliError::InvalidUtf8 {
+                                context: path.to_path_buf(),
+                                err,
+                            })
+                        }
+                    }
+                };
 
-        let file_name = path.file_name().ok_or_else(|| CliError::RequireRoot {
-            context: context.map(|p| p.to_owned()),
-            path: path.clone(),
-        })?.to_owned();
+                #[derive(Deserialize)]
+                struct Package {
+                    #[serde(default)]
+                    browser: Value,
+                }
+
+                let result: Package = serde_json::from_str(&string)?;
+                let mut root = path.to_path_buf();
+                root.pop();
+                let mut alternates = Box::new(ModuleAlternates::new(root));
+                match result.browser.as_object() {
+                    None => {}
+                    Some(browser) => {
+                        for key in browser.keys() {
+                            match browser.get(key) {
+                                None => {}
+                                Some(Value::String(value)) => {
+                                    if key.as_str().chars().next() == Some('.') {
+                                        let src = PathBuf::from(key);
+                                        let tgt = PathBuf::from(value);
+                                        alternates.add_alt(&src, &tgt);
+                                    } else {
+                                        let src = key.as_str();
+                                        alternates.add_shim_module(src.to_string(), value.to_string());
+                                    }
+                                }
+                                Some(Value::Bool(false)) => {
+                                    alternates.add_ignored_module(key.to_string());
+                                }
+                                Some(_) => {
+                                }
+                            }
+                        }
+                        return Ok(alternates);
+                    }
+                }
+            },
+            Err(_error) => {}
+        }
+        return Ok(Box::new(NullModuleAlternates::new()));
+    }
+
+    fn find_nearest_package(path: &Path) -> Option<PathBuf> {
+        let mut buf = path.to_path_buf();
+        if buf.is_file() {
+            buf.pop();
+        }
+        while buf.parent().is_some() {
+            buf.push("package.json");
+            if buf.is_file() {
+                return Some(buf);
+            }
+            buf.pop();
+            buf.pop();
+        }
+        None
+    }
+
+    fn test_with_suffix(alternates: &ApplyAlternates, path: &Path, suffix: &str) -> Option<PathBuf> {
+        let mut p = path.to_path_buf();
+        p.push(suffix);
+        Self::test_path(alternates, &p)
+    }
+
+    fn test_with_ext(alternates: &ApplyAlternates, path: &Path, ext: &str) -> Option<PathBuf> {
+        let mut file_name = path.file_name().unwrap().to_owned();
+        file_name.push(ext);
+        Self::test_path(alternates, &path.with_file_name(file_name))
+    }
+
+    fn test_path(alternates: &ApplyAlternates, path: &Path) -> Option<PathBuf> {
+        let p = alternates.apply(path.to_path_buf());
+        return if p.is_file() {
+            Some(p)
+        } else {
+            None
+        }
+    }
+
+    fn get_alternates(input_options: &InputOptions, path: &Path) -> Result<Box<ApplyAlternates>, CliError> {
+        let alternates = if input_options.browser {
+            match Self::find_nearest_package(path) {
+                None => Box::new(NullModuleAlternates::new()),
+                Some(p) => Self::extract_browser_alternates(p.as_path())?,
+            }
+        } else {
+            Box::new(NullModuleAlternates::new())
+        };
+        return Ok(alternates);
+    }
+
+    fn resolve_path(input_options: &InputOptions, _context: Option<&Path>, path: PathBuf) -> Result<Option<PathBuf>, CliError> {
+        let alternates = Self::get_alternates(input_options, &path)?;
+
+        // <path>
+        if let Some(p) = Self::test_path(&*alternates, &path) {
+            return Ok(Some(p));
+        }
 
         if input_options.es6_syntax {
-            // <path>.mjs
-            let mut mjs_file_name = file_name.to_owned();
-            mjs_file_name.push(".mjs");
-            path.set_file_name(&mjs_file_name);
-            if path.is_file() {
-                return Ok(Some(path))
+            // <path>/index.mjs
+            if let Some(p) = Self::test_with_suffix(&*alternates, &path, "index.mjs") {
+                return Ok(Some(p));
             }
 
-            // <path>/index.mjs
-            path.set_file_name(&file_name);
-            path.push("index.mjs");
-            if path.is_file() {
-                return Ok(Some(path))
+            // <path>.mjs
+            if let Some(p) = Self::test_with_ext(&*alternates, &path, ".mjs") {
+                return Ok(Some(p));
             }
-            path.pop();
         }
 
-        // <path>.js
-        let mut new_file_name = file_name.to_owned();
-        new_file_name.push(".js");
-        path.set_file_name(&new_file_name);
-        if path.is_file() {
-            return Ok(Some(path))
+        // <path>.mjs
+        if let Some(p) = Self::test_with_ext(&*alternates, &path, ".js") {
+            return Ok(Some(p));
         }
 
         // <path>/index.js
-        path.set_file_name(&file_name);
-        path.push("index.js");
-        if path.is_file() {
-            return Ok(Some(path))
+        if let Some(p) = Self::test_with_suffix(&*alternates, &path, "index.js") {
+            return Ok(Some(p));
         }
-        path.pop();
 
         // <path>.json
-        new_file_name.push("on"); // .js|on
-        path.set_file_name(&new_file_name);
-        if path.is_file() {
-            return Ok(Some(path))
+        if let Some(p) = Self::test_with_ext(&*alternates, &path, ".json") {
+            return Ok(Some(p));
         }
 
         // <path>/index.json
-        path.set_file_name(&file_name);
-        path.push("index.json");
-        if path.is_file() {
-            return Ok(Some(path))
+        if let Some(p) = Self::test_with_suffix(&*alternates, &path, "index.json") {
+            return Ok(Some(p));
         }
-        // path.pop();
 
         Ok(None)
     }
