@@ -781,7 +781,13 @@ fn run() -> Result<(), CliError> {
         eprint!("{}", progress_line);
         io::Write::flush(&mut io::stderr())?;
 
-        let mut modules = bundle(&entry_point, input_options.clone(), &output, &map_output)?;
+        let mut modules = match bundle(&entry_point, input_options.clone(), &output, &map_output) {
+            Ok(mods) => mods,
+            Err(e) => {
+                eprintln!();
+                return Err(e)
+            }
+        };
         let elapsed = entry_inst.elapsed();
         let ms = elapsed.as_secs() * 1_000 + u64::from(elapsed.subsec_millis());
 
