@@ -659,7 +659,12 @@ impl<'f, 's> Lexer<'f, 's> {
             stack: Vec::new(),
             error: None,
         };
+        // Only allow hashbang at start of input
+        let hashbang = lexer.stream.skip_hashbang();
         lexer.advance();
+        if !hashbang.is_empty() {
+            lexer.here.ws_before = &input[0..hashbang.len() + lexer.here.ws_before.len()];
+        }
         lexer
     }
 
@@ -1611,6 +1616,33 @@ pub trait Stream<'s> {
         }
         Some((self.str_from(start_pos), nl_before))
     }
+
+    /// Advances past a hashbang (shebang) line.
+    ///
+    /// See the [TC39 proposal](https://github.com/tc39/proposal-hashbang) for more information.
+    ///
+    /// Returns a slice covering the skipped shebang line.
+    #[inline(always)]
+    fn skip_hashbang(&mut self) -> &'s str {
+        let start_pos = self.pos();
+        match self.here() {
+            Some('#') => match self.next() {
+                Some('!') => {
+                    self.advance();
+                    self.advance();
+                    self.skip_while(|c| !matches!(c,
+                        | '\u{000A}' // LINE FEED (LF)          <LF>
+                        | '\u{000D}' // CARRIAGE RETURN (CR)    <CR>
+                        | '\u{2028}' // LINE SEPARATOR          <LS>
+                        | '\u{2029}' // PARAGRAPH SEPARATOR     <PS>
+                    ));
+                }
+                _ => {}
+            }
+            _ => {}
+        }
+        self.str_from(start_pos)
+    }
 }
 
 /// Generic source code stream with byte offset information.
@@ -1968,6 +2000,43 @@ mod test {
         "#, &[
             Tt::Id("test")
         ]);
+    }
+
+    #[test]
+    fn test_hashbang() {
+        lex_test(r#"#!/usr/bin/env node
+
+        test"#, &[
+            Tt::Id("test"),
+        ]);
+    }
+
+    #[test]
+    fn test_hashbang_invalid() {
+        lex_test_invalid(r#"!#/usr/bin/env node"#);
+        lex_test_invalid(r#" #!/usr/bin/env node"#);
+        lex_test_invalid(r#"
+        #!/usr/bin/env node"#);
+        lex_test_invalid("// comment
+        #!/usr/bin/env node");
+        lex_test_invalid("/* comment
+        */#!/usr/bin/env node");
+        lex_test_invalid("(function() {
+            #!/usr/bin/env node
+            'use strict'
+        }())");
+    }
+
+    #[test]
+    fn test_hashbang_ws() {
+        let mut lexer = Lexer::new("<input>", "#!/usr/bin/env node\ntest");
+        assert_eq!(lexer.advance(), Tok {
+            nl_before: true,
+            ws_before: "#!/usr/bin/env node\n",
+            span: Span::new("<input>", 20, 24),
+            tt: Tt::Id("test"),
+        });
+        assert_eq!(Tt::Eof, lexer.advance().tt);
     }
 
     #[test]
