@@ -3,6 +3,9 @@
   Pax.baseRequire = typeof require !== "undefined" ? require : n => {
     throw new Error(`Could not resolve module name: ${n}`)
   }
+  Pax.ignored = () => {}
+  Pax.ignored.deps = {}
+  Pax.ignored.filename = ''
   Pax.modules = {}
   Pax.files = {}
   Pax.mains = {}

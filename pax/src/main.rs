@@ -22,26 +22,45 @@ extern crate lazy_static;
 #[macro_use]
 extern crate cfg_if;
 
-use std::{env, process, io, fs, thread, time, iter, fmt, str, string};
+use std::{env, process, io, fs, thread, time, iter, fmt, str, string, mem};
 use std::io::prelude::*;
 use std::fmt::{Display, Write};
 use std::path::{self, PathBuf, Path, Component};
 use std::sync::mpsc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::marker::PhantomData;
 use std::sync::Arc;
+use std::rc::Rc;
 use std::any::Any;
 use std::borrow::Cow;
+use std::cell::RefCell;
 use std::ffi::OsString;
 use fnv::{FnvHashMap, FnvHashSet};
 use crossbeam::sync::SegQueue;
 use notify::Watcher;
 use esparse::lex::{self, Tt};
+use serde::de::{self, Deserialize, Deserializer, Visitor};
 use serde::ser::{Serialize, Serializer, SerializeSeq};
-use serde_json::Value;
 use regex::Regex;
 
 mod opts;
 mod es6;
+
+macro_rules! map {
+    {} => {
+        Default::default()
+    };
+    { $($key:expr => $value:expr,)+ } => {
+        {
+            let mut map = FnvHashMap::default();
+            $(map.insert($key, $value);)+
+            map
+        }
+    };
+    { $($key:expr => $value:expr),+ } => {
+        map!{$($key => $value,)+}
+    };
+}
 
 const HEAD_JS: &str = include_str!("head.js");
 const TAIL_JS: &str = include_str!("tail.js");
@@ -298,6 +317,14 @@ impl<'a, 'b> Writer<'a, 'b> {
         for (name, resolved) in deps {
             match *resolved {
                 Resolved::External => {}
+                Resolved::Ignore => {
+                    if comma {
+                        result.push(',');
+                    }
+                    result.push_str(&to_quoted_json_string(name));
+                    result.push_str(":Pax.ignored");
+                    comma = true;
+                }
                 Resolved::Normal(ref path) => {
                     if comma {
                         result.push(',');
@@ -340,7 +367,7 @@ impl<'a, 'b> Writer<'a, 'b> {
         result.push_str("file_");
         for &b in bytes {
             match b {
-                b'_' | b'a'...b'z' | b'A'...b'Z' => {
+                b'_' | b'a'...b'z' | b'A'...b'Z' | b'0'...b'9' => {
                     result.push(b as char);
                 }
                 _ => {
@@ -400,11 +427,24 @@ impl Vlq {
 const B64: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 #[derive(Debug, Clone)]
-struct Worker {
+struct WorkerInit {
     tx: mpsc::Sender<Result<WorkDone, CliError>>,
     input_options: InputOptions,
     queue: Arc<SegQueue<Work>>,
     quit: Arc<AtomicBool>,
+}
+#[derive(Debug, Clone)]
+struct Worker {
+    tx: mpsc::Sender<Result<WorkDone, CliError>>,
+    input_options: InputOptions,
+    cache: PackageCache,
+    queue: Arc<SegQueue<Work>>,
+    quit: Arc<AtomicBool>,
+}
+
+#[derive(Debug, Clone, Default)]
+struct PackageCache {
+    pkgs: RefCell<FnvHashMap<PathBuf, Option<Rc<PackageInfo>>>>,
 }
 
 #[derive(Debug)]
@@ -442,12 +482,27 @@ pub struct Source {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Resolved {
     External,
+    Ignore,
     // CoreWithSubst(PathBuf),
     Normal(PathBuf),
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum ModuleSubstitution {
+    Normal,
+    Ignore,
+    Replace(String),
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum PathSubstitution {
+    Missing,
+    Normal,
+    Ignore,
+    Replace(PathBuf),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct InputOptions {
+    pub for_browser: bool,
     pub es6_syntax: bool,
     pub es6_syntax_everywhere: bool,
     pub external: FnvHashSet<String>,
@@ -476,7 +531,7 @@ pub fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map
     let mut pending = 0;
     let thread_count = num_cpus::get();
     let (tx, rx) = mpsc::channel();
-    let worker = Worker {
+    let worker_init = WorkerInit {
         tx,
         input_options,
         quit: Arc::new(AtomicBool::new(false)),
@@ -488,24 +543,24 @@ pub fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map
 
     let mut modules = FnvHashMap::<PathBuf, ModuleState>::default();
 
-    worker.add_work(Work::Include { module: entry_point.to_owned() });
+    worker_init.add_work(Work::Include { module: entry_point.to_owned() });
     pending += 1;
     modules.insert(entry_point.to_owned(), ModuleState::Loading);
 
     let children: Vec<_> = (0..thread_count).map(|_| {
-        let worker = worker.clone();
-        thread::spawn(move || worker.run())
+        let init = worker_init.clone();
+        thread::spawn(move || Worker::new(init).run())
     }).collect();
     // let children: Vec<_> = (0..thread_count).map(|n| {
-    //     let worker = worker.clone();
-    //     thread::Builder::new().name(format!("worker #{}", n + 1)).spawn(move || worker.run()).unwrap()
+    //     let init = worker_init.clone();
+    //     thread::Builder::new().name(format!("worker #{}", n + 1)).spawn(move || Worker::new(init).run()).unwrap()
     // }).collect();
 
     while let Ok(work_done) = rx.recv() {
         // eprintln!("{:?}", work_done);
         let work_done = match work_done {
             Err(error) => {
-                worker.quit.store(true, Ordering::Relaxed);
+                worker_init.quit.store(true, Ordering::Relaxed);
                 return Err(error)
             }
             Ok(work_done) => {
@@ -523,9 +578,10 @@ pub fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map
                 }
                 match resolved {
                     Resolved::External => {}
+                    Resolved::Ignore => {}
                     Resolved::Normal(module) => {
                         modules.entry(module.clone()).or_insert_with(|| {
-                            worker.add_work(Work::Include { module });
+                            worker_init.add_work(Work::Include { module });
                             pending += 1;
                             ModuleState::Loading
                         });
@@ -539,7 +595,7 @@ pub fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map
                 }));
                 debug_assert_matches!(old, Some(ModuleState::Loading));
                 for dep in info.deps {
-                    worker.add_work(Work::Resolve {
+                    worker_init.add_work(Work::Resolve {
                         context: module.clone(),
                         name: dep,
                     });
@@ -552,7 +608,7 @@ pub fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map
         }
     }
 
-    worker.quit.store(true, Ordering::Relaxed);
+    worker_init.quit.store(true, Ordering::Relaxed);
     for child in children {
         child.join()?;
     }
@@ -607,6 +663,7 @@ fn run() -> Result<(), CliError> {
     let mut input = None;
     let mut output = None;
     let mut map = None;
+    let mut for_browser = false;
     let mut es6_syntax = false;
     let mut es6_syntax_everywhere = false;
     let mut map_inline = false;
@@ -640,6 +697,7 @@ fn run() -> Result<(), CliError> {
             },
             "-I" | "--map-inline" => map_inline = true,
             "-M" | "--no-map" => no_map = true,
+            "-b" | "--for-browser" => for_browser = true,
             "-e" | "--es-syntax" => es6_syntax = true,
             "-E" | "--es-syntax-everywhere" => {
                 es6_syntax = true;
@@ -713,19 +771,30 @@ fn run() -> Result<(), CliError> {
     };
 
     let input_options = InputOptions {
+        for_browser,
         es6_syntax,
         es6_syntax_everywhere,
         external,
     };
 
-    let entry_point = Worker::resolve_main(&input_options, input_dir, &input)?;
+    let entry_point = match Worker::resolve_main(&input_options, input_dir, &input)? {
+        Resolved::External => return Err(CliError::InvalidMain),
+        Resolved::Ignore => return Err(CliError::InvalidMain),
+        Resolved::Normal(path) => path,
+    };
 
     if watch {
         let progress_line = format!(" build {output} ...", output = output);
         eprint!("{}", progress_line);
         io::Write::flush(&mut io::stderr())?;
 
-        let mut modules = bundle(&entry_point, input_options.clone(), &output, &map_output)?;
+        let mut modules = match bundle(&entry_point, input_options.clone(), &output, &map_output) {
+            Ok(mods) => mods,
+            Err(e) => {
+                eprintln!();
+                return Err(e)
+            }
+        };
         let elapsed = entry_inst.elapsed();
         let ms = elapsed.as_secs() * 1_000 + u64::from(elapsed.subsec_millis());
 
@@ -856,6 +925,11 @@ Options:
         Ignore references to node.js core modules like 'events' and leave them
         as require('<module>') references in the bundle.
 
+    -b, --for-browser
+        Perform substitutions specified by the `browser` field in package.json.
+
+        https://github.com/defunctzombie/package-browser-field-spec
+
     -h, --help
         Print this message.
 
@@ -869,6 +943,7 @@ pub enum CliError {
     Help,
     Version,
     MissingFileName,
+    InvalidMain,
     DuplicateOption(String),
     MissingOptionValue(String),
     UnknownOption(String),
@@ -937,6 +1012,9 @@ impl fmt::Display for CliError {
             }
             CliError::MissingFileName => {
                 write_usage(f)
+            }
+            CliError::InvalidMain => {
+                write!(f, "invalid main module")
             }
             CliError::DuplicateOption(ref opt) => {
                 write!(f, "option {} specified more than once", opt)
@@ -1035,6 +1113,10 @@ fn main() {
 
 trait PathBufExt {
     fn append_resolving<P: AsRef<Path> + ?Sized>(&mut self, more: &P);
+    fn prepend_resolving<P: AsRef<Path> + ?Sized>(&mut self, base: &P);
+    fn clear(&mut self);
+    fn replace_with<P: AsRef<Path> + ?Sized>(&mut self, that: &P);
+    fn as_mut_vec(&mut self) -> &mut Vec<u8>;
 }
 impl PathBufExt for PathBuf {
     fn append_resolving<P: AsRef<Path> + ?Sized>(&mut self, more: &P) {
@@ -1056,12 +1138,33 @@ impl PathBufExt for PathBuf {
             }
         }
     }
+    fn prepend_resolving<P: AsRef<Path> + ?Sized>(&mut self, base: &P) {
+        let mut tmp = base.as_ref().to_owned();
+        mem::swap(self, &mut tmp);
+        self.append_resolving(tmp.as_path());
+    }
+    fn clear(&mut self) {
+        self.as_mut_vec().clear();
+    }
+    fn replace_with<P: AsRef<Path> + ?Sized>(&mut self, that: &P) {
+        self.clear();
+        self.push(that);
+    }
+
+    fn as_mut_vec(&mut self) -> &mut Vec<u8> {
+        unsafe { &mut *(self as *mut PathBuf as *mut Vec<u8>) }
+    }
 }
 
 trait PathExt {
+    fn is_explicitly_relative(&self) -> bool;
     fn relative_from<P: AsRef<Path> + ?Sized>(&self, base: &P) -> Option<PathBuf>;
 }
 impl PathExt for Path {
+    #[inline]
+    fn is_explicitly_relative(&self) -> bool {
+        matches!(self.components().next(), Some(Component::CurDir) | Some(Component::ParentDir))
+    }
     fn relative_from<P: AsRef<Path> + ?Sized>(&self, base: &P) -> Option<PathBuf> {
         let base = base.as_ref();
         if self.is_absolute() != base.is_absolute() {
@@ -1102,7 +1205,23 @@ impl PathExt for Path {
     }
 }
 
+impl WorkerInit {
+    fn add_work(&self, work: Work) {
+        self.queue.push(work);
+    }
+}
+
 impl Worker {
+    fn new(init: WorkerInit) -> Self {
+        Worker {
+            tx: init.tx,
+            input_options: init.input_options,
+            cache: Default::default(),
+            queue: init.queue,
+            quit: init.quit,
+        }
+    }
+
     fn run(mut self) {
         while let Some(work) = self.get_work() {
             let work_done = match work {
@@ -1126,47 +1245,63 @@ impl Worker {
         }
     }
 
-    fn resolve_main(input_options: &InputOptions, mut dir: PathBuf, name: &str) -> Result<PathBuf, CliError> {
+    fn resolve_main(input_options: &InputOptions, mut dir: PathBuf, name: &str) -> Result<Resolved, CliError> {
         dir.append_resolving(Path::new(name));
-        Self::resolve_path_or_module(input_options, None, dir)?.ok_or_else(|| {
+        let mut cache = Default::default();
+        Self::resolve_path_or_module(input_options, &mut cache, None, dir)?.ok_or_else(|| {
             CliError::MainNotFound {
                 name: name.to_owned(),
             }
         })
     }
 
-    fn resolve(&self, context: &Path, name: &str) -> Result<Resolved, CliError> {
+    fn resolve(&mut self, context: &Path, name: &str) -> Result<Resolved, CliError> {
         if name.is_empty() {
             return Err(CliError::EmptyModuleName {
                 context: context.to_owned()
             })
         }
+
         let path = Path::new(name);
         if path.is_absolute() {
-            Ok(Resolved::Normal(
-                Self::resolve_path_or_module(&self.input_options, Some(context),path.to_owned())?.ok_or_else(|| {
+            Ok(
+                Self::resolve_path_or_module(&self.input_options, &mut self.cache, Some(context), path.to_owned())?.ok_or_else(|| {
                     CliError::ModuleNotFound {
                         context: context.to_owned(),
                         name: name.to_owned(),
                     }
                 })?,
-            ))
-        } else if path.starts_with(".") || path.starts_with("..") {
+            )
+        } else if path.is_explicitly_relative() {
             let mut dir = context.to_owned();
             let did_pop = dir.pop(); // to directory
             debug_assert!(did_pop);
             dir.append_resolving(path);
-            Ok(Resolved::Normal(
-                Self::resolve_path_or_module(&self.input_options, Some(context), dir)?.ok_or_else(|| {
+            Ok(
+                Self::resolve_path_or_module(&self.input_options, &mut self.cache, Some(context), dir)?.ok_or_else(|| {
                     CliError::ModuleNotFound {
                         context: context.to_owned(),
                         name: name.to_owned(),
                     }
                 })?,
-            ))
+            )
         } else {
             if self.input_options.external.contains(name) {
                 return Ok(Resolved::External)
+            }
+
+            if self.input_options.for_browser {
+                match self.module_substitution(context, name)? {
+                    ModuleSubstitution::Ignore => {
+                        return Ok(Resolved::Ignore)
+                    }
+                    ModuleSubstitution::Replace(ref new_name) => {
+                        // TODO: detect cycles
+                        // eprintln!("module replace {} => {}", name, &new_name);
+                        return self.resolve(context, &new_name)
+                    }
+                    ModuleSubstitution::Normal => {}
+                }
             }
 
             let mut suffix = PathBuf::from("node_modules");
@@ -1179,8 +1314,8 @@ impl Worker {
                     _ => {}
                 }
                 let new_path = dir.join(&suffix);
-                if let Some(result) = Self::resolve_path_or_module(&self.input_options, Some(context), new_path)? {
-                    return Ok(Resolved::Normal(result))
+                if let Some(result) = Self::resolve_path_or_module(&self.input_options, &mut self.cache, Some(context), new_path)? {
+                    return Ok(result)
                 }
             }
 
@@ -1190,59 +1325,80 @@ impl Worker {
             })
         }
     }
-    fn resolve_path_or_module(input_options: &InputOptions, context: Option<&Path>, mut path: PathBuf) -> Result<Option<PathBuf>, CliError> {
-        path.push("package.json");
-        let result = fs::File::open(&path);
-        path.pop();
-        match result {
-            Ok(file) => {
-                let string = {
-                    let mut buf_reader = io::BufReader::new(file);
-                    let mut bytes = Vec::new();
-                    buf_reader.read_to_end(&mut bytes)?;
-                    match String::from_utf8(bytes) {
-                        Ok(s) => s,
-                        Err(err) => {
-                            return Err(CliError::InvalidUtf8 {
-                                context: path.join("package.json"),
-                                err,
-                            })
+
+    fn module_substitution(&mut self, context: &Path, name: &str) -> Result<ModuleSubstitution, CliError> {
+        if self.input_options.for_browser {
+            if let Some(p) = context.parent() {
+                if let Some(info) = self.cache.nearest_package_info(p.to_owned())? {
+                    let module_name = name.split('/').next().unwrap();
+                    match info.browser_substitutions.0.get(Path::new(module_name)) {
+                        Some(&BrowserSubstitution::Ignore) => {
+                            return Ok(ModuleSubstitution::Ignore)
                         }
-                    }
-                };
-
-                #[derive(Deserialize)]
-                struct Package {
-                    #[serde(default)]
-                    main: Value,
-
-                    // Efficiently skip deserializing other fields.
-                }
-
-                let result: Package = serde_json::from_str(&string)?;
-                match result.main.as_str() {
-                    None => {
-                        // Do nothing if `main` is not present or not a string.
-                    }
-                    Some(main) => {
-                        path.append_resolving(main);
+                        Some(&BrowserSubstitution::Replace(ref to)) => {
+                            let mut new_name = to.to_string_lossy().into_owned();
+                            new_name.push_str(&name[module_name.len()..]);
+                            return Ok(ModuleSubstitution::Replace(new_name))
+                        }
+                        None => {}
                     }
                 }
-            },
-            Err(_error) => {
-                // if error.kind() != io::ErrorKind::NotFound {
-                //     return Err(From::from(error))
-                // }
             }
         }
-        Self::resolve_path(input_options, context, path)
+        Ok(ModuleSubstitution::Normal)
     }
 
-    fn resolve_path(input_options: &InputOptions, context: Option<&Path>, mut path: PathBuf) -> Result<Option<PathBuf>, CliError> {
-        // <path>
-        if path.is_file() {
-            return Ok(Some(path))
+    fn resolve_path_or_module(input_options: &InputOptions, cache: &mut PackageCache, context: Option<&Path>, mut path: PathBuf) -> Result<Option<Resolved>, CliError> {
+        if let Some(info) = cache.package_info(&mut path)? {
+            path.replace_with(&info.main);
+            if input_options.for_browser {
+                match info.browser_substitutions.0.get(&path) {
+                    Some(BrowserSubstitution::Ignore) => {
+                        return Ok(Some(Resolved::Ignore))
+                    }
+                    Some(BrowserSubstitution::Replace(ref to)) => {
+                        path.replace_with(to);
+                    }
+                    None => {},
+                }
+            }
         }
+        Self::resolve_path(input_options, cache, context, path)
+    }
+
+    fn resolve_path(input_options: &InputOptions, cache: &mut PackageCache, context: Option<&Path>, mut path: PathBuf) -> Result<Option<Resolved>, CliError> {
+        let package_info = if input_options.for_browser {
+            cache.nearest_package_info(path.clone())?
+        } else {
+            None
+        };
+
+        macro_rules! check_path {
+            ( $package_info:ident, $path:ident ) => {
+                // eprintln!("check {}", $path.display());
+                if input_options.for_browser {
+                    match Self::check_path($package_info.as_ref().map(|x| x.as_ref()), &$path) {
+                        PathSubstitution::Normal => {
+                            // eprintln!("resolve {}", $path.display());
+                            return Ok(Some(Resolved::Normal($path)))
+                        }
+                        PathSubstitution::Ignore => {
+                            return Ok(Some(Resolved::Ignore))
+                        }
+                        PathSubstitution::Replace(p) => {
+                            // eprintln!("path replace {} => {}", $path.display(), p.display());
+                            return Ok(Some(Resolved::Normal(p)))
+                        }
+                        PathSubstitution::Missing => {}
+                    }
+                } else if path.is_file() {
+                    return Ok(Some(Resolved::Normal(path)))
+                }
+            };
+        }
+
+        // <path>
+        check_path!(package_info, path);
 
         let file_name = path.file_name().ok_or_else(|| CliError::RequireRoot {
             context: context.map(|p| p.to_owned()),
@@ -1254,16 +1410,12 @@ impl Worker {
             let mut mjs_file_name = file_name.to_owned();
             mjs_file_name.push(".mjs");
             path.set_file_name(&mjs_file_name);
-            if path.is_file() {
-                return Ok(Some(path))
-            }
+            check_path!(package_info, path);
 
             // <path>/index.mjs
             path.set_file_name(&file_name);
             path.push("index.mjs");
-            if path.is_file() {
-                return Ok(Some(path))
-            }
+            check_path!(package_info, path);
             path.pop();
         }
 
@@ -1271,34 +1423,45 @@ impl Worker {
         let mut new_file_name = file_name.to_owned();
         new_file_name.push(".js");
         path.set_file_name(&new_file_name);
-        if path.is_file() {
-            return Ok(Some(path))
-        }
+        check_path!(package_info, path);
 
         // <path>/index.js
         path.set_file_name(&file_name);
         path.push("index.js");
-        if path.is_file() {
-            return Ok(Some(path))
-        }
+        check_path!(package_info, path);
         path.pop();
 
         // <path>.json
         new_file_name.push("on"); // .js|on
         path.set_file_name(&new_file_name);
-        if path.is_file() {
-            return Ok(Some(path))
-        }
+        check_path!(package_info, path);
 
         // <path>/index.json
         path.set_file_name(&file_name);
         path.push("index.json");
-        if path.is_file() {
-            return Ok(Some(path))
-        }
+        check_path!(package_info, path);
         // path.pop();
 
         Ok(None)
+    }
+
+    fn check_path(package_info: Option<&PackageInfo>, path: &Path) -> PathSubstitution {
+        if let Some(package_info) = package_info {
+            match package_info.browser_substitutions.0.get(path) {
+                Some(BrowserSubstitution::Ignore) => {
+                    return PathSubstitution::Ignore
+                }
+                Some(BrowserSubstitution::Replace(ref path)) => {
+                    return PathSubstitution::Replace(path.clone())
+                }
+                None => {}
+            }
+        }
+        if path.is_file() {
+            PathSubstitution::Normal
+        } else {
+            PathSubstitution::Missing
+        }
     }
 
     fn include(&self, module: &Path) -> Result<ModuleInfo, CliError> {
@@ -1381,10 +1544,6 @@ impl Worker {
         })
     }
 
-    fn add_work(&self, work: Work) {
-        self.queue.push(work);
-    }
-
     fn get_work(&mut self) -> Option<Work> {
         loop {
             match self.queue.try_pop() {
@@ -1399,6 +1558,265 @@ impl Worker {
                 }
             }
         }
+    }
+}
+
+impl PackageCache {
+    fn nearest_package_info(&self, mut dir: PathBuf) -> Result<Option<Rc<PackageInfo>>, CliError> {
+        loop {
+            if !matches!(dir.file_name(), Some(s) if s == "node_modules") {
+                if let Some(info) = self.package_info(&mut dir)? {
+                    return Ok(Some(info))
+                }
+            }
+            if !dir.pop() { return Ok(None) }
+        }
+    }
+    fn package_info(&self, dir: &mut PathBuf) -> Result<Option<Rc<PackageInfo>>, CliError> {
+        let mut pkgs = self.pkgs.borrow_mut();
+        Ok(pkgs.entry(dir.clone()).or_insert_with(|| {
+            dir.push("package.json");
+            if let Ok(file) = fs::File::open(&dir) {
+                let buf_reader = io::BufReader::new(file);
+                if let Ok(mut info) = serde_json::from_reader::<_, PackageInfo>(buf_reader) {
+                    dir.pop();
+                    info.set_base(&dir);
+                    // eprintln!("info {} {:?}", dir.display(), info);
+                    Some(Rc::new(info))
+                } else {
+                    dir.pop();
+                    None
+                }
+            } else {
+                dir.pop();
+                None
+            }
+        }).as_ref().cloned())
+    }
+}
+
+#[derive(Debug, Default, PartialEq, Eq, Clone)]
+struct PackageInfo {
+    main: PathBuf,
+    browser_substitutions: BrowserSubstitutionMap,
+}
+impl PackageInfo {
+    fn set_base(&mut self, base: &Path) {
+        self.main.prepend_resolving(base);
+        let substs = mem::replace(&mut self.browser_substitutions, Default::default());
+        self.browser_substitutions.0.extend(substs.0.into_iter()
+            .map(|(mut from, mut to)| {
+                if from.is_explicitly_relative() {
+                    from.prepend_resolving(base);
+                }
+                match to {
+                    BrowserSubstitution::Ignore => {}
+                    BrowserSubstitution::Replace(ref mut path) => {
+                        if path.is_explicitly_relative() {
+                            path.prepend_resolving(base);
+                        }
+                    }
+                }
+                (from, to)
+            }));
+    }
+}
+impl<'de> Deserialize<'de> for PackageInfo {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Debug, Default, PartialEq, Eq, Deserialize)]
+        #[serde(default)]
+        struct RawPackageInfo {
+            #[serde(deserialize_with = "from_str_or_none")]
+            main: Option<PathBuf>,
+            browser: BrowserField,
+        }
+
+        let info = RawPackageInfo::deserialize(deserializer)?;
+        let main = info.main.unwrap_or(PathBuf::from("./index"));
+        let browser_substitutions = info.browser.to_map(&main);
+        Ok(PackageInfo {
+            main,
+            browser_substitutions,
+        })
+    }
+}
+
+macro_rules! visit_unconditionally {
+    // bool i64 i128 u64 u128 f64 str bytes none some unit newtype_struct seq map enum
+    ($l:lifetime $as:expr) => {};
+    ($l:lifetime $as:expr, ) => {};
+    ($l:lifetime $as:expr, bool $($x:tt)*) => {
+        fn visit_bool<E: de::Error>(self, _: bool) -> Result<Self::Value, E> { Ok($as) }
+        visit_unconditionally!($l $as, $($x)*);
+    };
+    ($l:lifetime $as:expr, i64 $($x:tt)*) => {
+        fn visit_i64<E: de::Error>(self, _: i64) -> Result<Self::Value, E> { Ok($as) }
+        visit_unconditionally!($l $as, $($x)*);
+    };
+    ($l:lifetime $as:expr, i128 $($x:tt)*) => {
+        fn visit_i128<E: de::Error>(self, _: i128) -> Result<Self::Value, E> { Ok($as) }
+        visit_unconditionally!($l $as, $($x)*);
+    };
+    ($l:lifetime $as:expr, u64 $($x:tt)*) => {
+        fn visit_u64<E: de::Error>(self, _: u64) -> Result<Self::Value, E> { Ok($as) }
+        visit_unconditionally!($l $as, $($x)*);
+    };
+    ($l:lifetime $as:expr, u128 $($x:tt)*) => {
+        fn visit_u128<E: de::Error>(self, _: u128) -> Result<Self::Value, E> { Ok($as) }
+        visit_unconditionally!($l $as, $($x)*);
+    };
+    ($l:lifetime $as:expr, f64 $($x:tt)*) => {
+        fn visit_f64<E: de::Error>(self, _: f64) -> Result<Self::Value, E> { Ok($as) }
+        visit_unconditionally!($l $as, $($x)*);
+    };
+    ($l:lifetime $as:expr, str $($x:tt)*) => {
+        fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> { Ok($as) }
+        visit_unconditionally!($l $as, $($x)*);
+    };
+    ($l:lifetime $as:expr, bytes $($x:tt)*) => {
+        fn visit_bytes<E: de::Error>(self, _: &[u8]) -> Result<Self::Value, E> { Ok($as) }
+        visit_unconditionally!($l $as, $($x)*);
+    };
+    ($l:lifetime $as:expr, none $($x:tt)*) => {
+        fn visit_none<E: de::Error>(self) -> Result<Self::Value, E> { Ok($as) }
+        visit_unconditionally!($l $as, $($x)*);
+    };
+    ($l:lifetime $as:expr, some $($x:tt)*) => {
+        fn visit_some<D: Deserializer<$l>>(self, _: D) -> Result<Self::Value, D::Error> { Ok($as) }
+        visit_unconditionally!($l $as, $($x)*);
+    };
+    ($l:lifetime $as:expr, unit $($x:tt)*) => {
+        fn visit_unit<E: de::Error>(self) -> Result<Self::Value, E> { Ok($as) }
+        visit_unconditionally!($l $as, $($x)*);
+    };
+    ($l:lifetime $as:expr, newtype_struct $($x:tt)*) => {
+        fn visit_newtype_struct<D: Deserializer<$l>>(self, _: D) -> Result<Self::Value, D::Error> { Ok($as) }
+        visit_unconditionally!($l $as, $($x)*);
+    };
+    ($l:lifetime $as:expr, seq $($x:tt)*) => {
+        fn visit_seq<A: de::SeqAccess<$l>>(self, _: A) -> Result<Self::Value, A::Error> { Ok($as) }
+        visit_unconditionally!($l $as, $($x)*);
+    };
+    ($l:lifetime $as:expr, map $($x:tt)*) => {
+        fn visit_map<A: de::MapAccess<$l>>(self, _: A) -> Result<Self::Value, A::Error> { Ok($as) }
+        visit_unconditionally!($l $as, $($x)*);
+    };
+    ($l:lifetime $as:expr, enum $($x:tt)*) => {
+        fn visit_enum<A: de::EnumAccess<$l>>(self, _: A) -> Result<Self::Value, A::Error> { Ok($as) }
+        visit_unconditionally!($l $as, $($x)*);
+    };
+}
+
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+enum BrowserField {
+    Empty,
+    Main(PathBuf),
+    Complex(BrowserSubstitutionMap),
+}
+impl BrowserField {
+    fn to_map(self, main: &Path) -> BrowserSubstitutionMap {
+        match self {
+            BrowserField::Empty => {
+                Default::default()
+            }
+            BrowserField::Main(mut to) => {
+                if !to.is_explicitly_relative() {
+                    to.prepend_resolving(Path::new("."));
+                }
+                BrowserSubstitutionMap(map! {
+                    main.to_owned() => BrowserSubstitution::Replace(to),
+                })
+            }
+            BrowserField::Complex(map) => map,
+        }
+    }
+}
+impl Default for BrowserField {
+    fn default() -> Self {
+        BrowserField::Empty
+    }
+}
+impl<'de> Deserialize<'de> for BrowserField {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where D: Deserializer<'de> {
+        struct BrowserFieldVisitor;
+
+        impl<'de> Visitor<'de> for BrowserFieldVisitor {
+            type Value = BrowserField;
+
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                write!(f, "anything at all")
+            }
+            fn visit_map<A: de::MapAccess<'de>>(self, access: A) -> Result<Self::Value, A::Error> {
+                Ok(BrowserField::Complex(Deserialize::deserialize(de::value::MapAccessDeserializer::new(access))?))
+            }
+            fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> { Ok(BrowserField::Main(PathBuf::from(v))) }
+
+            visit_unconditionally!('de BrowserField::Empty, bool i64 i128 u64 u128 f64 bytes none some unit newtype_struct seq enum);
+        }
+
+        deserializer.deserialize_any(BrowserFieldVisitor)
+    }
+}
+
+fn from_str_or_none<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
+where for<'a> T: From<&'a str> + Deserialize<'de>, D: Deserializer<'de> {
+    struct FromStrOrNone<T>(PhantomData<T>);
+
+    impl<'de, T> Visitor<'de> for FromStrOrNone<T>
+    where for<'a> T: From<&'a str> + Deserialize<'de> {
+        type Value = Option<T>;
+
+        fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "anything at all")
+        }
+        fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
+            Ok(Some(T::from(v)))
+        }
+
+        visit_unconditionally!('de None, bool i64 i128 u64 u128 f64 bytes none some unit newtype_struct seq map enum);
+    }
+
+    deserializer.deserialize_any(FromStrOrNone(PhantomData))
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+enum BrowserSubstitution<T> {
+    Ignore,
+    Replace(T),
+}
+#[derive(Debug, Default, Deserialize, PartialEq, Eq, Clone)]
+#[serde(transparent)]
+struct BrowserSubstitutionMap(FnvHashMap<PathBuf, BrowserSubstitution<PathBuf>>);
+
+impl<'de, T> Deserialize<'de> for BrowserSubstitution<T>
+where for<'a> T: From<&'a str> {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct SubstitutionVisitor<T>(PhantomData<T>);
+
+        impl<'de, T> Visitor<'de> for SubstitutionVisitor<T>
+        where for<'a> T: From<&'a str> {
+            type Value = BrowserSubstitution<T>;
+
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                write!(f, "substitution path or false")
+            }
+
+            fn visit_bool<E: de::Error>(self, v: bool) -> Result<Self::Value, E> {
+                if v {
+                    Err(de::Error::invalid_value(de::Unexpected::Bool(v), &self))
+                } else {
+                    Ok(BrowserSubstitution::Ignore)
+                }
+            }
+
+            fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
+                Ok(BrowserSubstitution::Replace(From::from(v)))
+            }
+        }
+
+        deserializer.deserialize_any(SubstitutionVisitor(PhantomData))
     }
 }
 
