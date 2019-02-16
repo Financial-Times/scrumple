@@ -1465,7 +1465,7 @@ impl Worker {
     }
 
     fn include(&self, module: &Path) -> Result<ModuleInfo, CliError> {
-        let mut source = {
+        let source = {
             let file = fs::File::open(module)?;
             let mut buf_reader = io::BufReader::new(file);
             let mut bytes = Vec::new();
@@ -1478,9 +1478,6 @@ impl Worker {
                 }),
             }
         };
-        if source.starts_with("#!") {
-            source.replace_range(0..2, "//");
-        }
         let mut new_source = None;
         let prefix;
         let suffix;
@@ -1527,6 +1524,14 @@ impl Worker {
                 .map(|s| s.into_owned())
                 .collect()
         };
+
+        // Convert hashbang #! to //
+        if new_source.as_ref().unwrap_or(&source).starts_with("#!") {
+            if new_source.is_none() {
+                new_source = Some(source.clone())
+            }
+            new_source.as_mut().unwrap().replace_range(0..2, "//")
+        }
 
         Ok(ModuleInfo {
             source: match new_source {
