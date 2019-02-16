@@ -30,6 +30,7 @@ use std::sync::mpsc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::marker::PhantomData;
 use std::sync::Arc;
+use std::rc::Rc;
 use std::any::Any;
 use std::borrow::Cow;
 use std::cell::RefCell;
@@ -426,6 +427,13 @@ impl Vlq {
 const B64: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 #[derive(Debug, Clone)]
+struct WorkerInit {
+    tx: mpsc::Sender<Result<WorkDone, CliError>>,
+    input_options: InputOptions,
+    queue: Arc<SegQueue<Work>>,
+    quit: Arc<AtomicBool>,
+}
+#[derive(Debug, Clone)]
 struct Worker {
     tx: mpsc::Sender<Result<WorkDone, CliError>>,
     input_options: InputOptions,
@@ -436,7 +444,7 @@ struct Worker {
 
 #[derive(Debug, Clone, Default)]
 struct PackageCache {
-    pkgs: RefCell<FnvHashMap<PathBuf, Option<Arc<PackageInfo>>>>,
+    pkgs: RefCell<FnvHashMap<PathBuf, Option<Rc<PackageInfo>>>>,
 }
 
 #[derive(Debug)]
@@ -523,10 +531,9 @@ pub fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map
     let mut pending = 0;
     let thread_count = num_cpus::get();
     let (tx, rx) = mpsc::channel();
-    let worker = Worker {
+    let worker_init = WorkerInit {
         tx,
         input_options,
-        cache: Default::default(),
         quit: Arc::new(AtomicBool::new(false)),
         queue: Arc::new(SegQueue::new()),
     };
@@ -536,24 +543,24 @@ pub fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map
 
     let mut modules = FnvHashMap::<PathBuf, ModuleState>::default();
 
-    worker.add_work(Work::Include { module: entry_point.to_owned() });
+    worker_init.add_work(Work::Include { module: entry_point.to_owned() });
     pending += 1;
     modules.insert(entry_point.to_owned(), ModuleState::Loading);
 
     let children: Vec<_> = (0..thread_count).map(|_| {
-        let worker = worker.clone();
-        thread::spawn(move || worker.run())
+        let init = worker_init.clone();
+        thread::spawn(move || Worker::new(init).run())
     }).collect();
     // let children: Vec<_> = (0..thread_count).map(|n| {
-    //     let worker = worker.clone();
-    //     thread::Builder::new().name(format!("worker #{}", n + 1)).spawn(move || worker.run()).unwrap()
+    //     let init = worker_init.clone();
+    //     thread::Builder::new().name(format!("worker #{}", n + 1)).spawn(move || Worker::new(init).run()).unwrap()
     // }).collect();
 
     while let Ok(work_done) = rx.recv() {
         // eprintln!("{:?}", work_done);
         let work_done = match work_done {
             Err(error) => {
-                worker.quit.store(true, Ordering::Relaxed);
+                worker_init.quit.store(true, Ordering::Relaxed);
                 return Err(error)
             }
             Ok(work_done) => {
@@ -574,7 +581,7 @@ pub fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map
                     Resolved::Ignore => {}
                     Resolved::Normal(module) => {
                         modules.entry(module.clone()).or_insert_with(|| {
-                            worker.add_work(Work::Include { module });
+                            worker_init.add_work(Work::Include { module });
                             pending += 1;
                             ModuleState::Loading
                         });
@@ -588,7 +595,7 @@ pub fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map
                 }));
                 debug_assert_matches!(old, Some(ModuleState::Loading));
                 for dep in info.deps {
-                    worker.add_work(Work::Resolve {
+                    worker_init.add_work(Work::Resolve {
                         context: module.clone(),
                         name: dep,
                     });
@@ -601,7 +608,7 @@ pub fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map
         }
     }
 
-    worker.quit.store(true, Ordering::Relaxed);
+    worker_init.quit.store(true, Ordering::Relaxed);
     for child in children {
         child.join()?;
     }
@@ -1198,7 +1205,23 @@ impl PathExt for Path {
     }
 }
 
+impl WorkerInit {
+    fn add_work(&self, work: Work) {
+        self.queue.push(work);
+    }
+}
+
 impl Worker {
+    fn new(init: WorkerInit) -> Self {
+        Worker {
+            tx: init.tx,
+            input_options: init.input_options,
+            cache: Default::default(),
+            queue: init.queue,
+            quit: init.quit,
+        }
+    }
+
     fn run(mut self) {
         while let Some(work) = self.get_work() {
             let work_done = match work {
@@ -1521,10 +1544,6 @@ impl Worker {
         })
     }
 
-    fn add_work(&self, work: Work) {
-        self.queue.push(work);
-    }
-
     fn get_work(&mut self) -> Option<Work> {
         loop {
             match self.queue.try_pop() {
@@ -1543,7 +1562,7 @@ impl Worker {
 }
 
 impl PackageCache {
-    fn nearest_package_info(&self, mut dir: PathBuf) -> Result<Option<Arc<PackageInfo>>, CliError> {
+    fn nearest_package_info(&self, mut dir: PathBuf) -> Result<Option<Rc<PackageInfo>>, CliError> {
         loop {
             if !matches!(dir.file_name(), Some(s) if s == "node_modules") {
                 if let Some(info) = self.package_info(&mut dir)? {
@@ -1553,7 +1572,7 @@ impl PackageCache {
             if !dir.pop() { return Ok(None) }
         }
     }
-    fn package_info(&self, dir: &mut PathBuf) -> Result<Option<Arc<PackageInfo>>, CliError> {
+    fn package_info(&self, dir: &mut PathBuf) -> Result<Option<Rc<PackageInfo>>, CliError> {
         let mut pkgs = self.pkgs.borrow_mut();
         Ok(pkgs.entry(dir.clone()).or_insert_with(|| {
             dir.push("package.json");
@@ -1563,7 +1582,7 @@ impl PackageCache {
                     dir.pop();
                     info.set_base(&dir);
                     // eprintln!("info {} {:?}", dir.display(), info);
-                    Some(Arc::new(info))
+                    Some(Rc::new(info))
                 } else {
                     dir.pop();
                     None
