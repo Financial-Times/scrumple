@@ -1998,7 +1998,7 @@ mod test {
             /**a*b***/
             test
         "#, &[
-            Tt::Id("test")
+            Tt::Id("test"),
         ]);
     }
 
