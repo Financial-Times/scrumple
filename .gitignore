@@ -6,3 +6,4 @@ node_modules
 *.sublime-workspace
 .DS_Store
 .cargo
+!pax/examples/browser/**/node_modules
