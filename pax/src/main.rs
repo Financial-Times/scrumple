@@ -1465,7 +1465,7 @@ impl Worker {
     }
 
     fn include(&self, module: &Path) -> Result<ModuleInfo, CliError> {
-        let source = {
+        let mut source = {
             let file = fs::File::open(module)?;
             let mut buf_reader = io::BufReader::new(file);
             let mut bytes = Vec::new();
@@ -1478,6 +1478,9 @@ impl Worker {
                 }),
             }
         };
+        if source.starts_with("#!") {
+            source.replace_range(0..2, "//");
+        }
         let mut new_source = None;
         let prefix;
         let suffix;
