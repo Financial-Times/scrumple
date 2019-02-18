@@ -144,13 +144,12 @@ fn test_resolve_path_or_module() {
         let mut from_path = base_path;
         from_path.append_resolving(from);
 
-        let mut cache = Default::default();
+        let resolver = Resolver::new(input_options.clone());
         let expected = to_path.map(Resolved::Normal);
-
         // resolves with an empty cache...
-        assert_eq!(Worker::resolve_path_or_module(input_options, &mut cache, None, from_path.clone()).unwrap(), expected);
+        assert_eq!(resolver.resolve_path_or_module(None, from_path.clone()).unwrap(), expected);
         // ...and with everything cached
-        assert_eq!(Worker::resolve_path_or_module(input_options, &mut cache, None, from_path).unwrap(), expected);
+        assert_eq!(resolver.resolve_path_or_module(None, from_path).unwrap(), expected);
     }
     let cjs = InputOptions {
         for_browser: false,

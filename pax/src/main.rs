@@ -436,10 +436,15 @@ struct WorkerInit {
 #[derive(Debug, Clone)]
 struct Worker {
     tx: mpsc::Sender<Result<WorkDone, CliError>>,
-    input_options: InputOptions,
-    cache: PackageCache,
+    resolver: Resolver,
     queue: Arc<SegQueue<Work>>,
     quit: Arc<AtomicBool>,
+}
+
+#[derive(Debug, Clone, Default)]
+struct Resolver {
+    input_options: InputOptions,
+    cache: PackageCache,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -777,7 +782,7 @@ fn run() -> Result<(), CliError> {
         external,
     };
 
-    let entry_point = match Worker::resolve_main(&input_options, input_dir, &input)? {
+    let entry_point = match Resolver::new(input_options.clone()).resolve_main(input_dir, &input)? {
         Resolved::External => return Err(CliError::InvalidMain),
         Resolved::Ignore => return Err(CliError::InvalidMain),
         Resolved::Normal(path) => path,
@@ -1215,8 +1220,7 @@ impl Worker {
     fn new(init: WorkerInit) -> Self {
         Worker {
             tx: init.tx,
-            input_options: init.input_options,
-            cache: Default::default(),
+            resolver: Resolver::new(init.input_options),
             queue: init.queue,
             quit: init.quit,
         }
@@ -1226,7 +1230,7 @@ impl Worker {
         while let Some(work) = self.get_work() {
             let work_done = match work {
                 Work::Resolve { context, name } => {
-                    Self::resolve(&self.input_options, &mut self.cache, &context, &name)
+                    self.resolver.resolve(&context, &name)
                     .map(|resolved| WorkDone::Resolve {
                         context,
                         name,
@@ -1242,225 +1246,6 @@ impl Worker {
                 }
             };
             if self.tx.send(work_done).is_err() { return }
-        }
-    }
-
-    fn resolve_main(input_options: &InputOptions, mut dir: PathBuf, name: &str) -> Result<Resolved, CliError> {
-        dir.append_resolving(Path::new(name));
-        let mut cache = Default::default();
-        Self::resolve_path_or_module(input_options, &mut cache, None, dir)?.ok_or_else(|| {
-            CliError::MainNotFound {
-                name: name.to_owned(),
-            }
-        })
-    }
-
-    fn resolve(input_options: &InputOptions, cache: &mut PackageCache, context: &Path, name: &str) -> Result<Resolved, CliError> {
-        if name.is_empty() {
-            return Err(CliError::EmptyModuleName {
-                context: context.to_owned()
-            })
-        }
-
-        let path = Path::new(name);
-        if path.is_absolute() {
-            Ok(
-                Self::resolve_path_or_module(input_options, cache, Some(context), path.to_owned())?.ok_or_else(|| {
-                    CliError::ModuleNotFound {
-                        context: context.to_owned(),
-                        name: name.to_owned(),
-                    }
-                })?,
-            )
-        } else if path.is_explicitly_relative() {
-            let mut dir = context.to_owned();
-            let did_pop = dir.pop(); // to directory
-            debug_assert!(did_pop);
-            dir.append_resolving(path);
-            Ok(
-                Self::resolve_path_or_module(input_options, cache, Some(context), dir)?.ok_or_else(|| {
-                    CliError::ModuleNotFound {
-                        context: context.to_owned(),
-                        name: name.to_owned(),
-                    }
-                })?,
-            )
-        } else {
-            if input_options.external.contains(name) {
-                return Ok(Resolved::External)
-            }
-
-            if input_options.for_browser {
-                match Self::module_substitution(input_options, cache, context, name)? {
-                    ModuleSubstitution::Ignore => {
-                        return Ok(Resolved::Ignore)
-                    }
-                    ModuleSubstitution::Replace(new_name) => {
-                        // TODO: detect cycles
-                        // eprintln!("module replace {} => {}", name, &new_name);
-                        return Self::resolve(input_options, cache, context, &new_name)
-                    }
-                    ModuleSubstitution::Normal => {}
-                }
-            }
-
-            let mut suffix = PathBuf::from("node_modules");
-            suffix.push(name);
-
-            let mut dir = context.to_owned();
-            while dir.pop() {
-                match dir.file_name() {
-                    Some(s) if s == "node_modules" => continue,
-                    _ => {}
-                }
-                let new_path = dir.join(&suffix);
-                if let Some(result) = Self::resolve_path_or_module(input_options, cache, Some(context), new_path)? {
-                    return Ok(result)
-                }
-            }
-
-            Err(CliError::ModuleNotFound {
-                context: context.to_owned(),
-                name: name.to_owned(),
-            })
-        }
-    }
-
-    fn module_substitution(input_options: &InputOptions, cache: &mut PackageCache, context: &Path, name: &str) -> Result<ModuleSubstitution, CliError> {
-        if input_options.for_browser {
-            if let Some(p) = context.parent() {
-                if let Some(info) = cache.nearest_package_info(p.to_owned())? {
-                    let module_name = name.split('/').next().unwrap();
-                    match info.browser_substitutions.0.get(Path::new(module_name)) {
-                        Some(&BrowserSubstitution::Ignore) => {
-                            return Ok(ModuleSubstitution::Ignore)
-                        }
-                        Some(&BrowserSubstitution::Replace(ref to)) => {
-                            let mut new_name = to.to_string_lossy().into_owned();
-                            new_name.push_str(&name[module_name.len()..]);
-                            return Ok(ModuleSubstitution::Replace(new_name))
-                        }
-                        None => {}
-                    }
-                }
-            }
-        }
-        Ok(ModuleSubstitution::Normal)
-    }
-
-    fn resolve_path_or_module(input_options: &InputOptions, cache: &mut PackageCache, context: Option<&Path>, mut path: PathBuf) -> Result<Option<Resolved>, CliError> {
-        if let Some(info) = cache.package_info(&mut path)? {
-            path.replace_with(&info.main);
-            if input_options.for_browser {
-                match info.browser_substitutions.0.get(&path) {
-                    Some(BrowserSubstitution::Ignore) => {
-                        return Ok(Some(Resolved::Ignore))
-                    }
-                    Some(BrowserSubstitution::Replace(ref to)) => {
-                        path.replace_with(to);
-                    }
-                    None => {},
-                }
-            }
-        }
-        Self::resolve_path(input_options, cache, context, path)
-    }
-
-    fn resolve_path(input_options: &InputOptions, cache: &mut PackageCache, context: Option<&Path>, mut path: PathBuf) -> Result<Option<Resolved>, CliError> {
-        let package_info = if input_options.for_browser {
-            cache.nearest_package_info(path.clone())?
-        } else {
-            None
-        };
-
-        macro_rules! check_path {
-            ( $package_info:ident, $path:ident ) => {
-                // eprintln!("check {}", $path.display());
-                if input_options.for_browser {
-                    match Self::check_path($package_info.as_ref().map(|x| x.as_ref()), &$path) {
-                        PathSubstitution::Normal => {
-                            // eprintln!("resolve {}", $path.display());
-                            return Ok(Some(Resolved::Normal($path)))
-                        }
-                        PathSubstitution::Ignore => {
-                            return Ok(Some(Resolved::Ignore))
-                        }
-                        PathSubstitution::Replace(p) => {
-                            // eprintln!("path replace {} => {}", $path.display(), p.display());
-                            return Ok(Some(Resolved::Normal(p)))
-                        }
-                        PathSubstitution::Missing => {}
-                    }
-                } else if path.is_file() {
-                    return Ok(Some(Resolved::Normal(path)))
-                }
-            };
-        }
-
-        // <path>
-        check_path!(package_info, path);
-
-        let file_name = path.file_name().ok_or_else(|| CliError::RequireRoot {
-            context: context.map(|p| p.to_owned()),
-            path: path.clone(),
-        })?.to_owned();
-
-        if input_options.es6_syntax {
-            // <path>.mjs
-            let mut mjs_file_name = file_name.to_owned();
-            mjs_file_name.push(".mjs");
-            path.set_file_name(&mjs_file_name);
-            check_path!(package_info, path);
-
-            // <path>/index.mjs
-            path.set_file_name(&file_name);
-            path.push("index.mjs");
-            check_path!(package_info, path);
-            path.pop();
-        }
-
-        // <path>.js
-        let mut new_file_name = file_name.to_owned();
-        new_file_name.push(".js");
-        path.set_file_name(&new_file_name);
-        check_path!(package_info, path);
-
-        // <path>/index.js
-        path.set_file_name(&file_name);
-        path.push("index.js");
-        check_path!(package_info, path);
-        path.pop();
-
-        // <path>.json
-        new_file_name.push("on"); // .js|on
-        path.set_file_name(&new_file_name);
-        check_path!(package_info, path);
-
-        // <path>/index.json
-        path.set_file_name(&file_name);
-        path.push("index.json");
-        check_path!(package_info, path);
-        // path.pop();
-
-        Ok(None)
-    }
-
-    fn check_path(package_info: Option<&PackageInfo>, path: &Path) -> PathSubstitution {
-        if let Some(package_info) = package_info {
-            match package_info.browser_substitutions.0.get(path) {
-                Some(BrowserSubstitution::Ignore) => {
-                    return PathSubstitution::Ignore
-                }
-                Some(BrowserSubstitution::Replace(ref path)) => {
-                    return PathSubstitution::Replace(path.clone())
-                }
-                None => {}
-            }
-        }
-        if path.is_file() {
-            PathSubstitution::Normal
-        } else {
-            PathSubstitution::Missing
         }
     }
 
@@ -1502,7 +1287,7 @@ impl Worker {
                 prefix = "module.exports =".to_owned();
                 suffix = String::new();
 
-            } else if self.input_options.es6_syntax_everywhere {
+            } else if self.resolver.input_options.es6_syntax_everywhere {
                 let module = es6::module_to_cjs(&mut lexer, true)?;
                 // println!("{:#?}", module);
                 deps = module.deps;
@@ -1565,6 +1350,233 @@ impl Worker {
                     }
                 }
             }
+        }
+    }
+}
+
+impl Resolver {
+    fn new(input_options: InputOptions) -> Self {
+        Resolver {
+            input_options,
+            ..Default::default()
+        }
+    }
+
+    fn resolve_main(&self, mut dir: PathBuf, name: &str) -> Result<Resolved, CliError> {
+        dir.append_resolving(Path::new(name));
+        self.resolve_path_or_module(None, dir)?.ok_or_else(|| {
+            CliError::MainNotFound {
+                name: name.to_owned(),
+            }
+        })
+    }
+
+    fn resolve(&self, context: &Path, name: &str) -> Result<Resolved, CliError> {
+        if name.is_empty() {
+            return Err(CliError::EmptyModuleName {
+                context: context.to_owned()
+            })
+        }
+
+        let path = Path::new(name);
+        if path.is_absolute() {
+            Ok(
+                self.resolve_path_or_module(Some(context), path.to_owned())?.ok_or_else(|| {
+                    CliError::ModuleNotFound {
+                        context: context.to_owned(),
+                        name: name.to_owned(),
+                    }
+                })?,
+            )
+        } else if path.is_explicitly_relative() {
+            let mut dir = context.to_owned();
+            let did_pop = dir.pop(); // to directory
+            debug_assert!(did_pop);
+            dir.append_resolving(path);
+            Ok(
+                self.resolve_path_or_module(Some(context), dir)?.ok_or_else(|| {
+                    CliError::ModuleNotFound {
+                        context: context.to_owned(),
+                        name: name.to_owned(),
+                    }
+                })?,
+            )
+        } else {
+            if self.input_options.external.contains(name) {
+                return Ok(Resolved::External)
+            }
+
+            if self.input_options.for_browser {
+                match self.module_substitution(context, name)? {
+                    ModuleSubstitution::Ignore => {
+                        return Ok(Resolved::Ignore)
+                    }
+                    ModuleSubstitution::Replace(new_name) => {
+                        // TODO: detect cycles
+                        // eprintln!("module replace {} => {}", name, &new_name);
+                        return self.resolve(context, &new_name)
+                    }
+                    ModuleSubstitution::Normal => {}
+                }
+            }
+
+            let mut suffix = PathBuf::from("node_modules");
+            suffix.push(name);
+
+            let mut dir = context.to_owned();
+            while dir.pop() {
+                match dir.file_name() {
+                    Some(s) if s == "node_modules" => continue,
+                    _ => {}
+                }
+                let new_path = dir.join(&suffix);
+                if let Some(result) = self.resolve_path_or_module(Some(context), new_path)? {
+                    return Ok(result)
+                }
+            }
+
+            Err(CliError::ModuleNotFound {
+                context: context.to_owned(),
+                name: name.to_owned(),
+            })
+        }
+    }
+
+    fn module_substitution(&self, context: &Path, name: &str) -> Result<ModuleSubstitution, CliError> {
+        if self.input_options.for_browser {
+            if let Some(p) = context.parent() {
+                if let Some(info) = self.cache.nearest_package_info(p.to_owned())? {
+                    let module_name = name.split('/').next().unwrap();
+                    match info.browser_substitutions.0.get(Path::new(module_name)) {
+                        Some(&BrowserSubstitution::Ignore) => {
+                            return Ok(ModuleSubstitution::Ignore)
+                        }
+                        Some(&BrowserSubstitution::Replace(ref to)) => {
+                            let mut new_name = to.to_string_lossy().into_owned();
+                            new_name.push_str(&name[module_name.len()..]);
+                            return Ok(ModuleSubstitution::Replace(new_name))
+                        }
+                        None => {}
+                    }
+                }
+            }
+        }
+        Ok(ModuleSubstitution::Normal)
+    }
+
+    fn resolve_path_or_module(&self, context: Option<&Path>, mut path: PathBuf) -> Result<Option<Resolved>, CliError> {
+        if let Some(info) = self.cache.package_info(&mut path)? {
+            path.replace_with(&info.main);
+            if self.input_options.for_browser {
+                match info.browser_substitutions.0.get(&path) {
+                    Some(BrowserSubstitution::Ignore) => {
+                        return Ok(Some(Resolved::Ignore))
+                    }
+                    Some(BrowserSubstitution::Replace(ref to)) => {
+                        path.replace_with(to);
+                    }
+                    None => {},
+                }
+            }
+        }
+        self.resolve_path(context, path)
+    }
+
+    fn resolve_path(&self, context: Option<&Path>, mut path: PathBuf) -> Result<Option<Resolved>, CliError> {
+        let package_info = if self.input_options.for_browser {
+            self.cache.nearest_package_info(path.clone())?
+        } else {
+            None
+        };
+
+        macro_rules! check_path {
+            ( $package_info:ident, $path:ident ) => {
+                // eprintln!("check {}", $path.display());
+                if self.input_options.for_browser {
+                    match Self::check_path($package_info.as_ref().map(|x| x.as_ref()), &$path) {
+                        PathSubstitution::Normal => {
+                            // eprintln!("resolve {}", $path.display());
+                            return Ok(Some(Resolved::Normal($path)))
+                        }
+                        PathSubstitution::Ignore => {
+                            return Ok(Some(Resolved::Ignore))
+                        }
+                        PathSubstitution::Replace(p) => {
+                            // eprintln!("path replace {} => {}", $path.display(), p.display());
+                            return Ok(Some(Resolved::Normal(p)))
+                        }
+                        PathSubstitution::Missing => {}
+                    }
+                } else if path.is_file() {
+                    return Ok(Some(Resolved::Normal(path)))
+                }
+            };
+        }
+
+        // <path>
+        check_path!(package_info, path);
+
+        let file_name = path.file_name().ok_or_else(|| CliError::RequireRoot {
+            context: context.map(|p| p.to_owned()),
+            path: path.clone(),
+        })?.to_owned();
+
+        if self.input_options.es6_syntax {
+            // <path>.mjs
+            let mut mjs_file_name = file_name.to_owned();
+            mjs_file_name.push(".mjs");
+            path.set_file_name(&mjs_file_name);
+            check_path!(package_info, path);
+
+            // <path>/index.mjs
+            path.set_file_name(&file_name);
+            path.push("index.mjs");
+            check_path!(package_info, path);
+            path.pop();
+        }
+
+        // <path>.js
+        let mut new_file_name = file_name.to_owned();
+        new_file_name.push(".js");
+        path.set_file_name(&new_file_name);
+        check_path!(package_info, path);
+
+        // <path>/index.js
+        path.set_file_name(&file_name);
+        path.push("index.js");
+        check_path!(package_info, path);
+        path.pop();
+
+        // <path>.json
+        new_file_name.push("on"); // .js|on
+        path.set_file_name(&new_file_name);
+        check_path!(package_info, path);
+
+        // <path>/index.json
+        path.set_file_name(&file_name);
+        path.push("index.json");
+        check_path!(package_info, path);
+        // path.pop();
+
+        Ok(None)
+    }
+
+    fn check_path(package_info: Option<&PackageInfo>, path: &Path) -> PathSubstitution {
+        if let Some(package_info) = package_info {
+            match package_info.browser_substitutions.0.get(path) {
+                Some(BrowserSubstitution::Ignore) => {
+                    return PathSubstitution::Ignore
+                }
+                Some(BrowserSubstitution::Replace(ref path)) => {
+                    return PathSubstitution::Replace(path.clone())
+                }
+                None => {}
+            }
+        }
+        if path.is_file() {
+            PathSubstitution::Normal
+        } else {
+            PathSubstitution::Missing
         }
     }
 }
