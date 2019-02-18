@@ -77,6 +77,8 @@ matrix:
     - env: TARGET=x86_64-apple-darwin
       os: osx
       rust: nightly
+  allow_failures:
+    - rust: nightly
 
 before_install:
   - set -e
