@@ -783,8 +783,8 @@ fn run() -> Result<(), CliError> {
     };
 
     let entry_point = match Resolver::new(input_options.clone()).resolve_main(input_dir, &input)? {
-        Resolved::External => return Err(CliError::InvalidMain),
-        Resolved::Ignore => return Err(CliError::InvalidMain),
+        Resolved::External => return Err(CliError::ExternalMain),
+        Resolved::Ignore => return Err(CliError::IgnoredMain),
         Resolved::Normal(path) => path,
     };
 
@@ -948,7 +948,8 @@ pub enum CliError {
     Help,
     Version,
     MissingFileName,
-    InvalidMain,
+    ExternalMain,
+    IgnoredMain,
     DuplicateOption(String),
     MissingOptionValue(String),
     UnknownOption(String),
@@ -1018,8 +1019,11 @@ impl fmt::Display for CliError {
             CliError::MissingFileName => {
                 write_usage(f)
             }
-            CliError::InvalidMain => {
-                write!(f, "invalid main module")
+            CliError::ExternalMain => {
+                write!(f, "main module is --external")
+            }
+            CliError::IgnoredMain => {
+                write!(f, "main module is ignored by a browser field substitution")
             }
             CliError::DuplicateOption(ref opt) => {
                 write!(f, "option {} specified more than once", opt)
