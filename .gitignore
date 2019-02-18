@@ -7,3 +7,4 @@ node_modules
 .DS_Store
 .cargo
 !pax/examples/browser/**/node_modules
+!pax/fixtures/**/node_modules

@@ -1226,7 +1226,7 @@ impl Worker {
         while let Some(work) = self.get_work() {
             let work_done = match work {
                 Work::Resolve { context, name } => {
-                    self.resolve(&context, &name)
+                    Self::resolve(&self.input_options, &mut self.cache, &context, &name)
                     .map(|resolved| WorkDone::Resolve {
                         context,
                         name,
@@ -1255,7 +1255,7 @@ impl Worker {
         })
     }
 
-    fn resolve(&mut self, context: &Path, name: &str) -> Result<Resolved, CliError> {
+    fn resolve(input_options: &InputOptions, cache: &mut PackageCache, context: &Path, name: &str) -> Result<Resolved, CliError> {
         if name.is_empty() {
             return Err(CliError::EmptyModuleName {
                 context: context.to_owned()
@@ -1265,7 +1265,7 @@ impl Worker {
         let path = Path::new(name);
         if path.is_absolute() {
             Ok(
-                Self::resolve_path_or_module(&self.input_options, &mut self.cache, Some(context), path.to_owned())?.ok_or_else(|| {
+                Self::resolve_path_or_module(input_options, cache, Some(context), path.to_owned())?.ok_or_else(|| {
                     CliError::ModuleNotFound {
                         context: context.to_owned(),
                         name: name.to_owned(),
@@ -1278,7 +1278,7 @@ impl Worker {
             debug_assert!(did_pop);
             dir.append_resolving(path);
             Ok(
-                Self::resolve_path_or_module(&self.input_options, &mut self.cache, Some(context), dir)?.ok_or_else(|| {
+                Self::resolve_path_or_module(input_options, cache, Some(context), dir)?.ok_or_else(|| {
                     CliError::ModuleNotFound {
                         context: context.to_owned(),
                         name: name.to_owned(),
@@ -1286,19 +1286,19 @@ impl Worker {
                 })?,
             )
         } else {
-            if self.input_options.external.contains(name) {
+            if input_options.external.contains(name) {
                 return Ok(Resolved::External)
             }
 
-            if self.input_options.for_browser {
-                match self.module_substitution(context, name)? {
+            if input_options.for_browser {
+                match Self::module_substitution(input_options, cache, context, name)? {
                     ModuleSubstitution::Ignore => {
                         return Ok(Resolved::Ignore)
                     }
-                    ModuleSubstitution::Replace(ref new_name) => {
+                    ModuleSubstitution::Replace(new_name) => {
                         // TODO: detect cycles
                         // eprintln!("module replace {} => {}", name, &new_name);
-                        return self.resolve(context, &new_name)
+                        return Self::resolve(input_options, cache, context, &new_name)
                     }
                     ModuleSubstitution::Normal => {}
                 }
@@ -1314,7 +1314,7 @@ impl Worker {
                     _ => {}
                 }
                 let new_path = dir.join(&suffix);
-                if let Some(result) = Self::resolve_path_or_module(&self.input_options, &mut self.cache, Some(context), new_path)? {
+                if let Some(result) = Self::resolve_path_or_module(input_options, cache, Some(context), new_path)? {
                     return Ok(result)
                 }
             }
@@ -1326,10 +1326,10 @@ impl Worker {
         }
     }
 
-    fn module_substitution(&mut self, context: &Path, name: &str) -> Result<ModuleSubstitution, CliError> {
-        if self.input_options.for_browser {
+    fn module_substitution(input_options: &InputOptions, cache: &mut PackageCache, context: &Path, name: &str) -> Result<ModuleSubstitution, CliError> {
+        if input_options.for_browser {
             if let Some(p) = context.parent() {
-                if let Some(info) = self.cache.nearest_package_info(p.to_owned())? {
+                if let Some(info) = cache.nearest_package_info(p.to_owned())? {
                     let module_name = name.split('/').next().unwrap();
                     match info.browser_substitutions.0.get(Path::new(module_name)) {
                         Some(&BrowserSubstitution::Ignore) => {
