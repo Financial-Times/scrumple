@@ -129,13 +129,18 @@ fn test_deserialize_package_info() {
     });
 }
 
+fn fixture_path() -> PathBuf {
+    // let mut path = PathBuf::from(file!());
+    // path.append_resolving("../../../fixtures");
+    let mut path = std::env::current_dir().unwrap();
+    path.push("fixtures");
+    path
+}
+
 #[test]
 fn test_resolve_path_or_module() {
     fn assert_resolves(from: &str, to: Option<&str>, input_options: &InputOptions) {
-        // let mut base_path = PathBuf::from(file!());
-        // base_path.append_resolving("../../../fixtures");
-        let mut base_path = std::env::current_dir().unwrap();
-        base_path.push("fixtures");
+        let base_path = fixture_path();
         let to_path = to.map(|to| {
             let mut to_path = base_path.clone();
             to_path.append_resolving(to);
