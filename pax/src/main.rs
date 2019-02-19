@@ -1378,7 +1378,7 @@ impl Resolver {
     fn resolve(&self, context: &Path, name: &str) -> Result<Resolved, CliError> {
         if name.is_empty() {
             return Err(CliError::EmptyModuleName {
-                context: context.to_owned()
+                context: context.to_owned(),
             })
         }
 
