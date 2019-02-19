@@ -171,6 +171,8 @@ fn test_resolve_path_or_module() {
                Some("resolve/named-json.json"), &cjs);
     assert_resolves("resolve/named-mjs.mjs",
                Some("resolve/named-mjs.mjs"), &esm);
+    assert_resolves("resolve/named-jsz.jsz",
+               Some("resolve/named-jsz.jsz"), &cjs);
 
     assert_resolves("resolve/named-js",
                Some("resolve/named-js.js"), &cjs);
@@ -244,6 +246,8 @@ fn test_resolve_path_or_module() {
                Some("resolve/mod-mjs-dir-bare/main-mjs/index.mjs"), &esm);
     assert_resolves("resolve/mod-mjs-dir-rel/main-mjs",
                Some("resolve/mod-mjs-dir-rel/main-mjs/index.mjs"), &esm);
+
+    assert_resolves("resolve/named-jsz", None, &cjs);
 }
 
 cfg_if! {
