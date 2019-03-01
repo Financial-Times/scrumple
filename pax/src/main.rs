@@ -500,6 +500,7 @@ pub enum Resolved {
 enum ModuleSubstitution {
     Normal,
     Ignore,
+    External,
     Replace(String),
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1411,22 +1412,19 @@ impl Resolver {
                 })?,
             )
         } else {
-            if self.input_options.external.contains(name) {
-                return Ok(Resolved::External)
-            }
-
-            if self.input_options.for_browser {
-                match self.module_substitution(context, name)? {
-                    ModuleSubstitution::Ignore => {
-                        return Ok(Resolved::Ignore)
-                    }
-                    ModuleSubstitution::Replace(new_name) => {
-                        // TODO: detect cycles
-                        // eprintln!("module replace {} => {}", name, &new_name);
-                        return self.resolve(context, &new_name)
-                    }
-                    ModuleSubstitution::Normal => {}
+            match self.module_substitution(context, name)? {
+                ModuleSubstitution::Ignore => {
+                    return Ok(Resolved::Ignore)
                 }
+                ModuleSubstitution::External => {
+                    return Ok(Resolved::External)
+                }
+                ModuleSubstitution::Replace(new_name) => {
+                    // TODO: detect cycles
+                    // eprintln!("module replace {} => {}", name, &new_name);
+                    return self.resolve(context, &new_name)
+                }
+                ModuleSubstitution::Normal => {}
             }
 
             let mut suffix = PathBuf::from("node_modules");
@@ -1452,10 +1450,13 @@ impl Resolver {
     }
 
     fn module_substitution(&self, context: &Path, name: &str) -> Result<ModuleSubstitution, CliError> {
+        let module_name = name.split('/').next().unwrap();
+        if self.input_options.external.contains(module_name) {
+            return Ok(ModuleSubstitution::External)
+        }
         if self.input_options.for_browser {
             if let Some(p) = context.parent() {
                 if let Some(info) = self.cache.nearest_package_info(p.to_owned())? {
-                    let module_name = name.split('/').next().unwrap();
                     match info.browser_substitutions.0.get(Path::new(module_name)) {
                         Some(&BrowserSubstitution::Ignore) => {
                             return Ok(ModuleSubstitution::Ignore)
