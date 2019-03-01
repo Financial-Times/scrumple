@@ -574,6 +574,54 @@ where F: FnMut(&str, &str, Option<&str>, &InputOptions) {
 
     assert_resolves(ctx,          "n-named-jsz", None, &cjs);
 
+    assert_resolves(ctx,          "./n-named-noext", None, &cjs);
+    assert_resolves(ctx,          "./n-named-js.js", None, &cjs);
+    assert_resolves(ctx,          "./n-named-json.json", None, &cjs);
+    assert_resolves(ctx,          "./n-named-mjs.mjs", None, &esm);
+    assert_resolves(ctx,          "./n-named-jsz.jsz", None, &cjs);
+
+    assert_resolves(ctx,          "./n-named-js", None, &cjs);
+    assert_resolves(ctx,          "./n-named-json", None, &cjs);
+    assert_resolves(ctx,          "./n-named-mjs", None, &esm);
+
+    assert_resolves(ctx,          "./n-dir-js", None, &cjs);
+    assert_resolves(ctx,          "./n-dir-js/index", None, &cjs);
+    assert_resolves(ctx,          "./n-dir-json", None, &cjs);
+    assert_resolves(ctx,          "./n-dir-json/index", None, &cjs);
+    assert_resolves(ctx,          "./n-dir-mjs", None, &esm);
+    assert_resolves(ctx,          "./n-dir-mjs/index", None, &esm);
+
+    assert_resolves(ctx,          "./n-mod-noext-bare", None, &cjs);
+    assert_resolves(ctx,          "./n-mod-noext-rel", None, &cjs);
+
+    assert_resolves(ctx,          "./n-mod-main-nesting-bare", None, &cjs);
+    assert_resolves(ctx,          "./n-mod-main-nesting-bare/subdir", None, &cjs);
+    assert_resolves(ctx,          "./n-mod-main-nesting-rel", None, &cjs);
+    assert_resolves(ctx,          "./n-mod-main-nesting-rel/subdir", None, &cjs);
+
+    assert_resolves(ctx,          "./n-mod-js-ext-bare", None, &cjs);
+    assert_resolves(ctx,          "./n-mod-js-ext-rel", None, &cjs);
+    assert_resolves(ctx,          "./n-mod-js-noext-bare", None, &cjs);
+    assert_resolves(ctx,          "./n-mod-js-noext-rel", None, &cjs);
+    assert_resolves(ctx,          "./n-mod-js-dir-bare", None, &cjs);
+    assert_resolves(ctx,          "./n-mod-js-dir-rel", None, &cjs);
+
+    assert_resolves(ctx,          "./n-mod-json-ext-bare", None, &cjs);
+    assert_resolves(ctx,          "./n-mod-json-ext-rel", None, &cjs);
+    assert_resolves(ctx,          "./n-mod-json-noext-bare", None, &cjs);
+    assert_resolves(ctx,          "./n-mod-json-noext-rel", None, &cjs);
+    assert_resolves(ctx,          "./n-mod-json-dir-bare", None, &cjs);
+    assert_resolves(ctx,          "./n-mod-json-dir-rel", None, &cjs);
+
+    assert_resolves(ctx,          "./n-mod-mjs-ext-bare/main-mjs", None, &esm);
+    assert_resolves(ctx,          "./n-mod-mjs-ext-rel/main-mjs", None, &esm);
+    assert_resolves(ctx,          "./n-mod-mjs-noext-bare/main-mjs", None, &esm);
+    assert_resolves(ctx,          "./n-mod-mjs-noext-rel/main-mjs", None, &esm);
+    assert_resolves(ctx,          "./n-mod-mjs-dir-bare/main-mjs", None, &esm);
+    assert_resolves(ctx,          "./n-mod-mjs-dir-rel/main-mjs", None, &esm);
+
+    assert_resolves(ctx,          "./n-named-jsz", None, &cjs);
+
     assert_resolves(ctx,          "shadowed",
         Some("resolve/node_modules/shadowed/index.js"), &cjs);
 
