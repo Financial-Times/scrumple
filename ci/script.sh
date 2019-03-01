@@ -10,8 +10,13 @@ main() {
         return
     fi
 
-    cross test --target $TARGET
-    cross test --target $TARGET --release
+    if [ "$TARGET" = "x86_64-apple-darwin" ] && [ "$TRAVIS_OS_NAME" = osx ]; then
+      cargo test
+      cargo test --release
+    else
+      cross test --target $TARGET -- --skip test_resolve_consistency
+      cross test --target $TARGET --release -- --skip test_resolve_consistency
+    fi
 }
 
 # we don't run the "test phase" when doing deploys

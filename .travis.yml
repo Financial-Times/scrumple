@@ -86,6 +86,7 @@ before_install:
 
 install:
   - sh ci/install.sh
+  - if [ "$TARGET" = "x86_64-apple-darwin" ]; then nvm install stable; nvm use stable; fi
   - source ~/.cargo/env || true
 
 script:
