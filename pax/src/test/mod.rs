@@ -5,8 +5,10 @@ extern crate test;
 
 use serde_json;
 use std::io::{self, Write};
+use std::fs;
 use std::path::Path;
 use std::process;
+use walkdir::WalkDir;
 use super::*;
 
 #[test]
@@ -838,24 +840,31 @@ fn test_resolve_consistency() {
         test_resolve_with(append);
     }
 
-    fn make_source(cases: &Cases) -> Vec<u8> {
+    fn make_source(base: &Path, cases: &Cases) -> Vec<u8> {
         let mut b = indoc!(br#"
+            'use strict'
             const assert = require('assert').strict
             const path = require('path')
+            const fs = require('fs')
             function n(from) {
                 let fail = false
                 try {{require.resolve(from), fail = true}} catch(_) {{}}
                 if (fail) assert.fail(`'${from}' does not fail to resolve`)
             }
             function y(from, to) {
-                assert.equal(require.resolve(from), to)
+                assert.equal(fs.realpathSync(require.resolve(from)), fs.realpathSync(to))
             }
         "#).to_vec();
-        let base_path = fixture_path();
         for (from, to) in cases {
-            let from = serde_json::to_string(from).unwrap();
+            let from_path = Path::new(from);
+            let from = if from_path.is_absolute() {
+                let suffix = from_path.strip_prefix(fixture_path()).expect("absolute path outside of fixtures");
+                serde_json::to_string(&base.join(suffix))
+            } else {
+                serde_json::to_string(from)
+            }.unwrap();
             if let Some(to) = to {
-                let mut to_path = base_path.clone();
+                let mut to_path = base.to_owned();
                 to_path.append_resolving(to);
                 let to = serde_json::to_string(to_path.to_str().unwrap()).unwrap();
                 writeln!(b, "y({from}, {to})", from=from, to=to).unwrap();
@@ -866,8 +875,8 @@ fn test_resolve_consistency() {
         // io::stdout().write_all(&b).unwrap();
         b
     }
-    fn test_file(esm: bool, ctx: &str, cases: &Cases) {
-        let mut ctx_dir = fixture_path();
+    fn test_file(base: &Path, esm: bool, ctx: &str, cases: &Cases) {
+        let mut ctx_dir = base.to_owned();
         ctx_dir.append_resolving(ctx);
         ctx_dir.pop();
         // let ext = if esm { ".mjs" } else { ".js" };
@@ -878,7 +887,7 @@ fn test_resolve_consistency() {
             .tempfile_in(ctx_dir)
             .unwrap();
         file.as_file_mut()
-            .write_all(&make_source(cases))
+            .write_all(&make_source(base, cases))
             .unwrap();
 
         let mut args = Vec::new();
@@ -896,14 +905,30 @@ fn test_resolve_consistency() {
             assert!(false);
         }
     }
-    fn test_file_map(esm: bool, map: &CaseMap) {
+    fn test_file_map(base: &Path, esm: bool, map: &CaseMap) {
         for (ctx, cases) in map.into_iter() {
-            test_file(esm, ctx, cases)
+            test_file(base, esm, ctx, cases)
         }
     }
 
-    test_file_map(false, &cjs);
-    test_file_map(true, &esm);
+    let base_dir = tempfile::tempdir().unwrap();
+    let fixture_dir = fixture_path();
+    for entry in WalkDir::new(&fixture_dir)
+        .into_iter()
+        .filter_map(Result::ok) {
+        let local_path = entry.path().strip_prefix(&fixture_dir).unwrap();
+        if local_path.components().next().is_none() { continue }
+
+        let new_path = base_dir.path().join(local_path);
+        // println!("{} {}", entry.path().display(), new_path.display());
+        if entry.file_type().is_dir() {
+            fs::create_dir(new_path).unwrap();
+        } else {
+            fs::copy(entry.path(), new_path).unwrap();
+        }
+    }
+    test_file_map(base_dir.path(), false, &cjs);
+    test_file_map(base_dir.path(), true, &esm);
 }
 
 #[test]

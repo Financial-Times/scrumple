@@ -26,6 +26,8 @@ extern crate cfg_if;
 extern crate indoc;
 #[cfg(test)]
 extern crate tempfile;
+#[cfg(test)]
+extern crate walkdir;
 
 use std::{env, process, io, fs, thread, time, iter, fmt, str, string, mem};
 use std::io::prelude::*;
