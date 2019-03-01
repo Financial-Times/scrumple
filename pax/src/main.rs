@@ -21,6 +21,11 @@ extern crate lazy_static;
 #[cfg(test)]
 #[macro_use]
 extern crate cfg_if;
+#[cfg(test)]
+#[macro_use]
+extern crate indoc;
+#[cfg(test)]
+extern crate tempfile;
 
 use std::{env, process, io, fs, thread, time, iter, fmt, str, string, mem};
 use std::io::prelude::*;

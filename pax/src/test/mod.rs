@@ -4,6 +4,7 @@
 extern crate test;
 
 use serde_json;
+use std::io::{self, Write};
 use std::path::Path;
 use std::process;
 use super::*;
@@ -255,31 +256,36 @@ fn test_resolve_path_or_module() {
     path_resolves("resolve/named-jsz", None, &cjs);
 }
 
+fn assert_resolves(context: &str, from: &str, to: Option<&str>, input_options: &InputOptions) {
+    let base_path = fixture_path();
+    let to_path = to.map(|to| {
+        let mut to_path = base_path.clone();
+        to_path.append_resolving(to);
+        to_path
+    });
+    let mut context_path = base_path;
+    context_path.append_resolving(context);
+
+    let resolver = Resolver::new(input_options.clone());
+    if let Some(expected) = to_path.map(Resolved::Normal) {
+        // resolves with an empty cache...
+        assert_eq!(resolver.resolve(&context_path, from).unwrap(), expected);
+        // ...and with everything cached
+        assert_eq!(resolver.resolve(&context_path, from).unwrap(), expected);
+    } else {
+        // resolves with an empty cache...
+        assert_matches!(resolver.resolve(&context_path, from), Err(_));
+        // ...and with everything cached
+        assert_matches!(resolver.resolve(&context_path, from), Err(_));
+    }
+}
+
 #[test]
 fn test_resolve() {
-    fn assert_resolves(context: &str, from: &str, to: Option<&str>, input_options: &InputOptions) {
-        let base_path = fixture_path();
-        let to_path = to.map(|to| {
-            let mut to_path = base_path.clone();
-            to_path.append_resolving(to);
-            to_path
-        });
-        let mut context_path = base_path;
-        context_path.append_resolving(context);
-
-        let resolver = Resolver::new(input_options.clone());
-        if let Some(expected) = to_path.map(Resolved::Normal) {
-            // resolves with an empty cache...
-            assert_eq!(resolver.resolve(&context_path, from).unwrap(), expected);
-            // ...and with everything cached
-            assert_eq!(resolver.resolve(&context_path, from).unwrap(), expected);
-        } else {
-            // resolves with an empty cache...
-            assert_matches!(resolver.resolve(&context_path, from), Err(_));
-            // ...and with everything cached
-            assert_matches!(resolver.resolve(&context_path, from), Err(_));
-        }
-    }
+  test_resolve_with(assert_resolves);
+}
+fn test_resolve_with<F>(mut assert_resolves: F)
+where F: FnMut(&str, &str, Option<&str>, &InputOptions) {
     let cjs = InputOptions {
         for_browser: false,
         es6_syntax: false,
@@ -757,6 +763,99 @@ fn test_resolve() {
     let ctx = "resolve/subdir/subdir2/hypothetical.js";
     assert_resolves(ctx,                          "shadowed",
          Some("resolve/subdir/subdir2/node_modules/shadowed/index.js"), &cjs);
+}
+
+#[test]
+fn test_resolve_consistency() {
+    // meta-test: ensure test_resolve matches node behavior
+
+    type Cases = FnvHashSet<(String, Option<String>)>;
+    type CaseMap = FnvHashMap<String, Cases>;
+
+    let mut cjs = FnvHashMap::default();
+    let mut esm = FnvHashMap::default();
+
+    {
+        let append = |ctx: &str, from: &str, to: Option<&str>, input_options: &InputOptions| {
+            let assertions = if input_options.es6_syntax {
+                &mut esm
+            } else {
+                &mut cjs
+            };
+            assertions.entry(ctx.to_owned())
+                .or_insert_with(FnvHashSet::default)
+                .insert((from.to_owned(), to.map(ToOwned::to_owned)));
+        };
+
+        test_resolve_with(append);
+    }
+
+    fn make_source(cases: &Cases) -> Vec<u8> {
+        let mut b = indoc!(br#"
+            const assert = require('assert').strict
+            const path = require('path')
+            function n(from) {
+                let fail = false
+                try {{require.resolve(from), fail = true}} catch(_) {{}}
+                if (fail) assert.fail(`'${from}' does not fail to resolve`)
+            }
+            function y(from, to) {
+                assert.equal(require.resolve(from), to)
+            }
+        "#).to_vec();
+        let base_path = fixture_path();
+        for (from, to) in cases {
+            let from = serde_json::to_string(from).unwrap();
+            if let Some(to) = to {
+                let mut to_path = base_path.clone();
+                to_path.append_resolving(to);
+                let to = serde_json::to_string(to_path.to_str().unwrap()).unwrap();
+                writeln!(b, "y({from}, {to})", from=from, to=to).unwrap();
+            } else {
+                writeln!(b, "n({from})", from=from).unwrap();
+            }
+        }
+        // io::stdout().write_all(&b).unwrap();
+        b
+    }
+    fn test_file(esm: bool, ctx: &str, cases: &Cases) {
+        let mut ctx_dir = fixture_path();
+        ctx_dir.append_resolving(ctx);
+        ctx_dir.pop();
+        // let ext = if esm { ".mjs" } else { ".js" };
+        let ext = ".js";
+
+        let mut file = tempfile::Builder::new()
+            .suffix(ext)
+            .tempfile_in(ctx_dir)
+            .unwrap();
+        file.as_file_mut()
+            .write_all(&make_source(cases))
+            .unwrap();
+
+        let mut args = Vec::new();
+        if esm {
+            args.push("--experimental-modules");
+        }
+        args.push(file.path().to_str().unwrap());
+        let output = process::Command::new("node")
+            .args(&args)
+            .output()
+            .expect("failed to run node");
+
+        if !output.status.success() {
+            io::stderr().write(&output.stderr).unwrap();
+            assert!(false);
+        }
+    }
+    fn test_file_map(esm: bool, map: &CaseMap) {
+        for (ctx, cases) in map.into_iter() {
+            test_file(esm, ctx, cases)
+        }
+    }
+
+    test_file_map(false, &cjs);
+    test_file_map(true, &esm);
 }
 
 cfg_if! {
