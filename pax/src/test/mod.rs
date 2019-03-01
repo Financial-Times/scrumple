@@ -906,6 +906,72 @@ fn test_resolve_consistency() {
     test_file_map(true, &esm);
 }
 
+#[test]
+fn test_external() {
+    fn assert_resolves(context: &str, from: &str, to: Resolved, input_options: &InputOptions) {
+        let base_path = fixture_path();
+        let to = match to {
+            Resolved::Normal(mut path) => {
+                path.prepend_resolving(&base_path);
+                Resolved::Normal(path)
+            }
+            r => r,
+        };
+        let mut context_path = base_path;
+        context_path.append_resolving(context);
+
+        let resolver = Resolver::new(input_options.clone());
+        // resolves with an empty cache...
+        assert_eq!(resolver.resolve(&context_path, from).unwrap(), to);
+        // ...and with everything cached
+        assert_eq!(resolver.resolve(&context_path, from).unwrap(), to);
+    }
+
+    let ext = InputOptions {
+        for_browser: false,
+        es6_syntax: false,
+        es6_syntax_everywhere: false,
+        external: vec![
+            "external".to_owned(),
+            "external-only-module".to_owned(),
+        ].into_iter().collect(),
+    };
+    let non = InputOptions {
+        for_browser: false,
+        es6_syntax: false,
+        es6_syntax_everywhere: false,
+        external: Default::default(),
+    };
+
+    let ctx = "resolve/hypothetical.js";
+    assert_resolves(ctx, "external", Resolved::External, &ext);
+    assert_resolves(ctx, "external/", Resolved::External, &ext);
+    assert_resolves(ctx, "external/file.js", Resolved::External, &ext);
+    assert_resolves(ctx, "external/file", Resolved::External, &ext);
+    assert_resolves(ctx, "external/subdir", Resolved::External, &ext);
+    assert_resolves(ctx, "external/subdir/", Resolved::External, &ext);
+    assert_resolves(ctx, "external/subdir/index.js", Resolved::External, &ext);
+    assert_resolves(ctx,                     "./external",
+        Resolved::Normal(PathBuf::from("resolve/external.js")), &ext);
+
+    assert_resolves(ctx,                     "./external",
+        Resolved::Normal(PathBuf::from("resolve/external.js")), &non);
+    assert_resolves(ctx,                                    "external",
+        Resolved::Normal(PathBuf::from("resolve/node_modules/external/index.js")), &non);
+    assert_resolves(ctx,                                    "external/",
+        Resolved::Normal(PathBuf::from("resolve/node_modules/external/index.js")), &non);
+    assert_resolves(ctx,                                    "external/file.js",
+        Resolved::Normal(PathBuf::from("resolve/node_modules/external/file.js")), &non);
+    assert_resolves(ctx,                                    "external/file",
+        Resolved::Normal(PathBuf::from("resolve/node_modules/external/file.js")), &non);
+    assert_resolves(ctx,                                    "external/subdir",
+        Resolved::Normal(PathBuf::from("resolve/node_modules/external/subdir/index.js")), &non);
+    assert_resolves(ctx,                                    "external/subdir/index",
+        Resolved::Normal(PathBuf::from("resolve/node_modules/external/subdir/index.js")), &non);
+    assert_resolves(ctx,                                    "external/subdir/index.js",
+        Resolved::Normal(PathBuf::from("resolve/node_modules/external/subdir/index.js")), &non);
+}
+
 cfg_if! {
     if #[cfg(feature = "bench")] {
         fn npm_install(dir: &Path) {
