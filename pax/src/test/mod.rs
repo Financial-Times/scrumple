@@ -242,17 +242,17 @@ fn test_resolve_path_or_module() {
     path_resolves("resolve/mod-json-dir-rel",
              Some("resolve/mod-json-dir-rel/main-json/index.json"), &cjs);
 
-    path_resolves("resolve/mod-mjs-ext-bare/main-mjs",
+    path_resolves("resolve/mod-mjs-ext-bare",
              Some("resolve/mod-mjs-ext-bare/main-mjs.mjs"), &esm);
-    path_resolves("resolve/mod-mjs-ext-rel/main-mjs",
+    path_resolves("resolve/mod-mjs-ext-rel",
              Some("resolve/mod-mjs-ext-rel/main-mjs.mjs"), &esm);
-    path_resolves("resolve/mod-mjs-noext-bare/main-mjs",
+    path_resolves("resolve/mod-mjs-noext-bare",
              Some("resolve/mod-mjs-noext-bare/main-mjs.mjs"), &esm);
-    path_resolves("resolve/mod-mjs-noext-rel/main-mjs",
+    path_resolves("resolve/mod-mjs-noext-rel",
              Some("resolve/mod-mjs-noext-rel/main-mjs.mjs"), &esm);
-    path_resolves("resolve/mod-mjs-dir-bare/main-mjs",
+    path_resolves("resolve/mod-mjs-dir-bare",
              Some("resolve/mod-mjs-dir-bare/main-mjs/index.mjs"), &esm);
-    path_resolves("resolve/mod-mjs-dir-rel/main-mjs",
+    path_resolves("resolve/mod-mjs-dir-rel",
              Some("resolve/mod-mjs-dir-rel/main-mjs/index.mjs"), &esm);
 
     path_resolves("resolve/named-jsz", None, &cjs);
@@ -375,17 +375,17 @@ where F: FnMut(&str, &str, Option<&str>, &InputOptions) {
     assert_resolves(ctx, "./mod-json-dir-rel",
               Some("resolve/mod-json-dir-rel/main-json/index.json"), &cjs);
 
-    assert_resolves(ctx, "./mod-mjs-ext-bare/main-mjs",
+    assert_resolves(ctx, "./mod-mjs-ext-bare",
               Some("resolve/mod-mjs-ext-bare/main-mjs.mjs"), &esm);
-    assert_resolves(ctx, "./mod-mjs-ext-rel/main-mjs",
+    assert_resolves(ctx, "./mod-mjs-ext-rel",
               Some("resolve/mod-mjs-ext-rel/main-mjs.mjs"), &esm);
-    assert_resolves(ctx, "./mod-mjs-noext-bare/main-mjs",
+    assert_resolves(ctx, "./mod-mjs-noext-bare",
               Some("resolve/mod-mjs-noext-bare/main-mjs.mjs"), &esm);
-    assert_resolves(ctx, "./mod-mjs-noext-rel/main-mjs",
+    assert_resolves(ctx, "./mod-mjs-noext-rel",
               Some("resolve/mod-mjs-noext-rel/main-mjs.mjs"), &esm);
-    assert_resolves(ctx, "./mod-mjs-dir-bare/main-mjs",
+    assert_resolves(ctx, "./mod-mjs-dir-bare",
               Some("resolve/mod-mjs-dir-bare/main-mjs/index.mjs"), &esm);
-    assert_resolves(ctx, "./mod-mjs-dir-rel/main-mjs",
+    assert_resolves(ctx, "./mod-mjs-dir-rel",
               Some("resolve/mod-mjs-dir-rel/main-mjs/index.mjs"), &esm);
 
     assert_resolves(ctx, "./named-jsz", None, &cjs);
@@ -464,17 +464,17 @@ where F: FnMut(&str, &str, Option<&str>, &InputOptions) {
     assert_resolves(ctx, "../mod-json-dir-rel",
                Some("resolve/mod-json-dir-rel/main-json/index.json"), &cjs);
 
-    assert_resolves(ctx, "../mod-mjs-ext-bare/main-mjs",
+    assert_resolves(ctx, "../mod-mjs-ext-bare",
                Some("resolve/mod-mjs-ext-bare/main-mjs.mjs"), &esm);
-    assert_resolves(ctx, "../mod-mjs-ext-rel/main-mjs",
+    assert_resolves(ctx, "../mod-mjs-ext-rel",
                Some("resolve/mod-mjs-ext-rel/main-mjs.mjs"), &esm);
-    assert_resolves(ctx, "../mod-mjs-noext-bare/main-mjs",
+    assert_resolves(ctx, "../mod-mjs-noext-bare",
                Some("resolve/mod-mjs-noext-bare/main-mjs.mjs"), &esm);
-    assert_resolves(ctx, "../mod-mjs-noext-rel/main-mjs",
+    assert_resolves(ctx, "../mod-mjs-noext-rel",
                Some("resolve/mod-mjs-noext-rel/main-mjs.mjs"), &esm);
-    assert_resolves(ctx, "../mod-mjs-dir-bare/main-mjs",
+    assert_resolves(ctx, "../mod-mjs-dir-bare",
                Some("resolve/mod-mjs-dir-bare/main-mjs/index.mjs"), &esm);
-    assert_resolves(ctx, "../mod-mjs-dir-rel/main-mjs",
+    assert_resolves(ctx, "../mod-mjs-dir-rel",
                Some("resolve/mod-mjs-dir-rel/main-mjs/index.mjs"), &esm);
 
     assert_resolves(ctx, "../named-jsz", None, &cjs);
@@ -561,17 +561,17 @@ where F: FnMut(&str, &str, Option<&str>, &InputOptions) {
     assert_resolves(ctx,          "n-mod-json-dir-rel",
         Some("resolve/node_modules/n-mod-json-dir-rel/main-json/index.json"), &cjs);
 
-    assert_resolves(ctx,          "n-mod-mjs-ext-bare/main-mjs",
+    assert_resolves(ctx,          "n-mod-mjs-ext-bare",
         Some("resolve/node_modules/n-mod-mjs-ext-bare/main-mjs.mjs"), &esm);
-    assert_resolves(ctx,          "n-mod-mjs-ext-rel/main-mjs",
+    assert_resolves(ctx,          "n-mod-mjs-ext-rel",
         Some("resolve/node_modules/n-mod-mjs-ext-rel/main-mjs.mjs"), &esm);
-    assert_resolves(ctx,          "n-mod-mjs-noext-bare/main-mjs",
+    assert_resolves(ctx,          "n-mod-mjs-noext-bare",
         Some("resolve/node_modules/n-mod-mjs-noext-bare/main-mjs.mjs"), &esm);
-    assert_resolves(ctx,          "n-mod-mjs-noext-rel/main-mjs",
+    assert_resolves(ctx,          "n-mod-mjs-noext-rel",
         Some("resolve/node_modules/n-mod-mjs-noext-rel/main-mjs.mjs"), &esm);
-    assert_resolves(ctx,          "n-mod-mjs-dir-bare/main-mjs",
+    assert_resolves(ctx,          "n-mod-mjs-dir-bare",
         Some("resolve/node_modules/n-mod-mjs-dir-bare/main-mjs/index.mjs"), &esm);
-    assert_resolves(ctx,          "n-mod-mjs-dir-rel/main-mjs",
+    assert_resolves(ctx,          "n-mod-mjs-dir-rel",
         Some("resolve/node_modules/n-mod-mjs-dir-rel/main-mjs/index.mjs"), &esm);
 
     assert_resolves(ctx,          "n-named-jsz", None, &cjs);
@@ -615,12 +615,12 @@ where F: FnMut(&str, &str, Option<&str>, &InputOptions) {
     assert_resolves(ctx,          "./n-mod-json-dir-bare", None, &cjs);
     assert_resolves(ctx,          "./n-mod-json-dir-rel", None, &cjs);
 
-    assert_resolves(ctx,          "./n-mod-mjs-ext-bare/main-mjs", None, &esm);
-    assert_resolves(ctx,          "./n-mod-mjs-ext-rel/main-mjs", None, &esm);
-    assert_resolves(ctx,          "./n-mod-mjs-noext-bare/main-mjs", None, &esm);
-    assert_resolves(ctx,          "./n-mod-mjs-noext-rel/main-mjs", None, &esm);
-    assert_resolves(ctx,          "./n-mod-mjs-dir-bare/main-mjs", None, &esm);
-    assert_resolves(ctx,          "./n-mod-mjs-dir-rel/main-mjs", None, &esm);
+    assert_resolves(ctx,          "./n-mod-mjs-ext-bare", None, &esm);
+    assert_resolves(ctx,          "./n-mod-mjs-ext-rel", None, &esm);
+    assert_resolves(ctx,          "./n-mod-mjs-noext-bare", None, &esm);
+    assert_resolves(ctx,          "./n-mod-mjs-noext-rel", None, &esm);
+    assert_resolves(ctx,          "./n-mod-mjs-dir-bare", None, &esm);
+    assert_resolves(ctx,          "./n-mod-mjs-dir-rel", None, &esm);
 
     assert_resolves(ctx,          "./n-named-jsz", None, &cjs);
 
@@ -705,17 +705,17 @@ where F: FnMut(&str, &str, Option<&str>, &InputOptions) {
     assert_resolves(ctx,          "shallow/s-mod-json-dir-rel",
         Some("resolve/node_modules/shallow/s-mod-json-dir-rel/main-json/index.json"), &cjs);
 
-    assert_resolves(ctx,          "shallow/s-mod-mjs-ext-bare/main-mjs",
+    assert_resolves(ctx,          "shallow/s-mod-mjs-ext-bare",
         Some("resolve/node_modules/shallow/s-mod-mjs-ext-bare/main-mjs.mjs"), &esm);
-    assert_resolves(ctx,          "shallow/s-mod-mjs-ext-rel/main-mjs",
+    assert_resolves(ctx,          "shallow/s-mod-mjs-ext-rel",
         Some("resolve/node_modules/shallow/s-mod-mjs-ext-rel/main-mjs.mjs"), &esm);
-    assert_resolves(ctx,          "shallow/s-mod-mjs-noext-bare/main-mjs",
+    assert_resolves(ctx,          "shallow/s-mod-mjs-noext-bare",
         Some("resolve/node_modules/shallow/s-mod-mjs-noext-bare/main-mjs.mjs"), &esm);
-    assert_resolves(ctx,          "shallow/s-mod-mjs-noext-rel/main-mjs",
+    assert_resolves(ctx,          "shallow/s-mod-mjs-noext-rel",
         Some("resolve/node_modules/shallow/s-mod-mjs-noext-rel/main-mjs.mjs"), &esm);
-    assert_resolves(ctx,          "shallow/s-mod-mjs-dir-bare/main-mjs",
+    assert_resolves(ctx,          "shallow/s-mod-mjs-dir-bare",
         Some("resolve/node_modules/shallow/s-mod-mjs-dir-bare/main-mjs/index.mjs"), &esm);
-    assert_resolves(ctx,          "shallow/s-mod-mjs-dir-rel/main-mjs",
+    assert_resolves(ctx,          "shallow/s-mod-mjs-dir-rel",
         Some("resolve/node_modules/shallow/s-mod-mjs-dir-rel/main-mjs/index.mjs"), &esm);
 
     assert_resolves(ctx,          "shallow/s-named-jsz", None, &cjs);
@@ -791,17 +791,17 @@ where F: FnMut(&str, &str, Option<&str>, &InputOptions) {
     assert_resolves(ctx,          "deep/dir1/dir2/dir3/d-mod-json-dir-rel",
         Some("resolve/node_modules/deep/dir1/dir2/dir3/d-mod-json-dir-rel/main-json/index.json"), &cjs);
 
-    assert_resolves(ctx,          "deep/dir1/dir2/dir3/d-mod-mjs-ext-bare/main-mjs",
+    assert_resolves(ctx,          "deep/dir1/dir2/dir3/d-mod-mjs-ext-bare",
         Some("resolve/node_modules/deep/dir1/dir2/dir3/d-mod-mjs-ext-bare/main-mjs.mjs"), &esm);
-    assert_resolves(ctx,          "deep/dir1/dir2/dir3/d-mod-mjs-ext-rel/main-mjs",
+    assert_resolves(ctx,          "deep/dir1/dir2/dir3/d-mod-mjs-ext-rel",
         Some("resolve/node_modules/deep/dir1/dir2/dir3/d-mod-mjs-ext-rel/main-mjs.mjs"), &esm);
-    assert_resolves(ctx,          "deep/dir1/dir2/dir3/d-mod-mjs-noext-bare/main-mjs",
+    assert_resolves(ctx,          "deep/dir1/dir2/dir3/d-mod-mjs-noext-bare",
         Some("resolve/node_modules/deep/dir1/dir2/dir3/d-mod-mjs-noext-bare/main-mjs.mjs"), &esm);
-    assert_resolves(ctx,          "deep/dir1/dir2/dir3/d-mod-mjs-noext-rel/main-mjs",
+    assert_resolves(ctx,          "deep/dir1/dir2/dir3/d-mod-mjs-noext-rel",
         Some("resolve/node_modules/deep/dir1/dir2/dir3/d-mod-mjs-noext-rel/main-mjs.mjs"), &esm);
-    assert_resolves(ctx,          "deep/dir1/dir2/dir3/d-mod-mjs-dir-bare/main-mjs",
+    assert_resolves(ctx,          "deep/dir1/dir2/dir3/d-mod-mjs-dir-bare",
         Some("resolve/node_modules/deep/dir1/dir2/dir3/d-mod-mjs-dir-bare/main-mjs/index.mjs"), &esm);
-    assert_resolves(ctx,          "deep/dir1/dir2/dir3/d-mod-mjs-dir-rel/main-mjs",
+    assert_resolves(ctx,          "deep/dir1/dir2/dir3/d-mod-mjs-dir-rel",
         Some("resolve/node_modules/deep/dir1/dir2/dir3/d-mod-mjs-dir-rel/main-mjs/index.mjs"), &esm);
 
     assert_resolves(ctx,          "deep/dir1/dir2/dir3/d-named-jsz", None, &cjs);
