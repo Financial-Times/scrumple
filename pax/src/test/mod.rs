@@ -537,6 +537,14 @@ where F: FnMut(&str, &str, Option<&str>, &InputOptions) {
                Some("resolve/mod-outer/index.js"), &esm);
     assert_resolves(ctx, "../mod-outer/mod-parent-noslash/",
                Some("resolve/mod-outer/index.js"), &esm);
+    assert_resolves("resolve/mod-outer/mod-parent-slash/hypothetical.js", "..",
+               Some("resolve/mod-outer/main.js"), &esm);
+    assert_resolves("resolve/mod-outer/mod-parent-slash/hypothetical.js", "../",
+               Some("resolve/mod-outer/main.js"), &esm);
+    assert_resolves("resolve/mod-outer/mod-parent-noslash/hypothetical.js", "..",
+               Some("resolve/mod-outer/main.js"), &esm);
+    assert_resolves("resolve/mod-outer/mod-parent-noslash/hypothetical.js", "../",
+               Some("resolve/mod-outer/main.js"), &esm);
 
     assert_resolves("resolve/dir-js/hypothetical.js", ".",
                Some("resolve/dir-js/index.js"), &cjs);
