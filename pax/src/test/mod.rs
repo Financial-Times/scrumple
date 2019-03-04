@@ -852,7 +852,11 @@ fn test_resolve_consistency() {
                 if (fail) assert.fail(`'${from}' does not fail to resolve`)
             }
             function y(from, to) {
-                assert.equal(fs.realpathSync(require.resolve(from)), fs.realpathSync(to))
+                try {
+                    assert.equal(fs.realpathSync(require.resolve(from)), fs.realpathSync(to))
+                } catch (e) {
+                    assert.fail(`'${from}' does not resolve to '${to}'`)
+                }
             }
         "#).to_vec();
         for (from, to) in cases {
