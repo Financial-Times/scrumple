@@ -388,6 +388,11 @@ where F: FnMut(&str, &str, Option<&str>, &InputOptions) {
     assert_resolves(ctx, "./mod-mjs-dir-rel",
               Some("resolve/mod-mjs-dir-rel/main-mjs/index.mjs"), &esm);
 
+    assert_resolves(ctx, "./mod-js-slash-bare",
+              Some("resolve/mod-js-slash-bare/main.js"), &cjs);
+    assert_resolves(ctx, "./mod-js-slash-rel",
+              Some("resolve/mod-js-slash-rel/main.js"), &cjs);
+
     assert_resolves(ctx, "./named-jsz", None, &cjs);
 
     let ctx = "resolve/subdir/hypothetical.js";
@@ -574,6 +579,11 @@ where F: FnMut(&str, &str, Option<&str>, &InputOptions) {
     assert_resolves(ctx,          "n-mod-mjs-dir-rel",
         Some("resolve/node_modules/n-mod-mjs-dir-rel/main-mjs/index.mjs"), &esm);
 
+    assert_resolves(ctx,          "n-mod-js-slash-bare",
+        Some("resolve/node_modules/n-mod-js-slash-bare/main.js"), &cjs);
+    assert_resolves(ctx,          "n-mod-js-slash-rel",
+        Some("resolve/node_modules/n-mod-js-slash-rel/main.js"), &cjs);
+
     assert_resolves(ctx,          "n-named-jsz", None, &cjs);
 
     assert_resolves(ctx,          "./n-named-noext", None, &cjs);
@@ -621,6 +631,9 @@ where F: FnMut(&str, &str, Option<&str>, &InputOptions) {
     assert_resolves(ctx,          "./n-mod-mjs-noext-rel", None, &esm);
     assert_resolves(ctx,          "./n-mod-mjs-dir-bare", None, &esm);
     assert_resolves(ctx,          "./n-mod-mjs-dir-rel", None, &esm);
+
+    assert_resolves(ctx,          "./n-mod-js-slash-bare", None, &cjs);
+    assert_resolves(ctx,          "./n-mod-js-slash-rel", None, &cjs);
 
     assert_resolves(ctx,          "./n-named-jsz", None, &cjs);
 
@@ -718,6 +731,11 @@ where F: FnMut(&str, &str, Option<&str>, &InputOptions) {
     assert_resolves(ctx,          "shallow/s-mod-mjs-dir-rel",
         Some("resolve/node_modules/shallow/s-mod-mjs-dir-rel/main-mjs/index.mjs"), &esm);
 
+    assert_resolves(ctx,          "shallow/s-mod-js-slash-bare",
+        Some("resolve/node_modules/shallow/s-mod-js-slash-bare/main.js"), &cjs);
+    assert_resolves(ctx,          "shallow/s-mod-js-slash-rel",
+        Some("resolve/node_modules/shallow/s-mod-js-slash-rel/main.js"), &cjs);
+
     assert_resolves(ctx,          "shallow/s-named-jsz", None, &cjs);
 
     assert_resolves(ctx,          "deep/dir1/dir2/dir3/d-named-noext",
@@ -803,6 +821,11 @@ where F: FnMut(&str, &str, Option<&str>, &InputOptions) {
         Some("resolve/node_modules/deep/dir1/dir2/dir3/d-mod-mjs-dir-bare/main-mjs/index.mjs"), &esm);
     assert_resolves(ctx,          "deep/dir1/dir2/dir3/d-mod-mjs-dir-rel",
         Some("resolve/node_modules/deep/dir1/dir2/dir3/d-mod-mjs-dir-rel/main-mjs/index.mjs"), &esm);
+
+    assert_resolves(ctx,          "deep/dir1/dir2/dir3/d-mod-js-slash-bare",
+        Some("resolve/node_modules/deep/dir1/dir2/dir3/d-mod-js-slash-bare/main.js"), &cjs);
+    assert_resolves(ctx,          "deep/dir1/dir2/dir3/d-mod-js-slash-rel",
+        Some("resolve/node_modules/deep/dir1/dir2/dir3/d-mod-js-slash-rel/main.js"), &cjs);
 
     assert_resolves(ctx,          "deep/dir1/dir2/dir3/d-named-jsz", None, &cjs);
 
