@@ -1374,13 +1374,15 @@ impl Resolver {
         }
     }
 
-    fn needs_dir(name: &str) -> bool {
-        name.ends_with('/') || matches!(Path::new(name).components().last(), Some(Component::CurDir) | Some(Component::ParentDir))
+    #[inline]
+    fn needs_dir(name: &str, path: &Path) -> bool {
+        name.ends_with('/') || matches!(path.components().last(), Some(Component::CurDir) | Some(Component::ParentDir))
     }
 
     fn resolve_main(&self, mut dir: PathBuf, name: &str) -> Result<Resolved, CliError> {
-        let needs_dir = Self::needs_dir(name);
-        dir.append_resolving(Path::new(name));
+        let path = Path::new(name);
+        dir.append_resolving(path);
+        let needs_dir = Self::needs_dir(name, path);
         self.resolve_path_or_module(None, dir, needs_dir, false)?.ok_or_else(|| {
             CliError::MainNotFound {
                 name: name.to_owned(),
@@ -1396,7 +1398,7 @@ impl Resolver {
         }
 
         let path = Path::new(name);
-        let needs_dir = Self::needs_dir(name);
+        let needs_dir = Self::needs_dir(name, path);
         if path.is_absolute() {
             Ok(
                 self.resolve_path_or_module(Some(context), path.to_owned(), needs_dir, false)?.ok_or_else(|| {
