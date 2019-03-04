@@ -498,6 +498,11 @@ where F: FnMut(&str, &str, Option<&str>, &InputOptions) {
     assert_resolves(ctx, "../mod-mjs-dir-rel",
                Some("resolve/mod-mjs-dir-rel/main-mjs/index.mjs"), &esm);
 
+    assert_resolves(ctx, "../mod-js-slash-bare",
+               Some("resolve/mod-js-slash-bare/main.js"), &cjs);
+    assert_resolves(ctx, "../mod-js-slash-rel",
+               Some("resolve/mod-js-slash-rel/main.js"), &cjs);
+
     assert_resolves(ctx, "../named-jsz", None, &cjs);
 
     // absolute paths
