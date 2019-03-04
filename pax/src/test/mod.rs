@@ -395,6 +395,22 @@ where F: FnMut(&str, &str, Option<&str>, &InputOptions) {
 
     assert_resolves(ctx, "./named-jsz", None, &cjs);
 
+    assert_resolves(ctx, "./file-and-dir",
+              Some("resolve/file-and-dir.js"), &esm);
+    assert_resolves(ctx, "./file-and-dir/",
+              Some("resolve/file-and-dir/index.js"), &esm);
+    assert_resolves(ctx, "./file-and-mod",
+              Some("resolve/file-and-mod.js"), &esm);
+    assert_resolves(ctx, "./file-and-mod/",
+              Some("resolve/file-and-mod/main.js"), &esm);
+    assert_resolves(ctx, "./dir-js/",
+              Some("resolve/dir-js/index.js"), &esm);
+    assert_resolves(ctx, "./mod-js-noext-rel/",
+              Some("resolve/mod-js-noext-rel/main-js.js"), &esm);
+    assert_resolves(ctx, "./named-js.js/", None, &esm);
+    assert_resolves(ctx, "./named-js/", None, &esm);
+    assert_resolves(ctx, "./named-noext/", None, &esm);
+
     let ctx = "resolve/subdir/hypothetical.js";
     assert_resolves(ctx, "./named-js", None, &cjs);
 
