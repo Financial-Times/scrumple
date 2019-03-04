@@ -1135,6 +1135,12 @@ where F: FnMut(&str, &str, Option<&str>, &InputOptions) {
     assert_resolves(ctx,                          "shadowed",
          Some("resolve/subdir/subdir2/node_modules/shadowed/index.js"), &cjs);
 
+    let ctx = "resolve/hypothetical.js";
+    assert_resolves(ctx,  "./unicode/𝌆",
+         Some("resolve/unicode/𝌆.js"), &cjs);
+    assert_resolves(ctx,  "./unicode/𝌆.js",
+         Some("resolve/unicode/𝌆.js"), &cjs);
+
     let ctx = "resolve-order/hypothetical.js";
     assert_resolves(ctx,  "./1-file",
          Some("resolve-order/1-file"), &cjs);
