@@ -1374,8 +1374,12 @@ impl Resolver {
         }
     }
 
+    fn has_trailing_slash(name: &str) -> bool {
+        name.ends_with('/') || matches!(Path::new(name).components().last(), Some(Component::CurDir) | Some(Component::ParentDir))
+    }
+
     fn resolve_main(&self, mut dir: PathBuf, name: &str) -> Result<Resolved, CliError> {
-        let trailing_slash = name.ends_with('/');
+        let trailing_slash = Self::has_trailing_slash(name);
         dir.append_resolving(Path::new(name));
         self.resolve_path_or_module(None, dir, trailing_slash, false)?.ok_or_else(|| {
             CliError::MainNotFound {
@@ -1392,7 +1396,7 @@ impl Resolver {
         }
 
         let path = Path::new(name);
-        let trailing_slash = name.ends_with('/');
+        let trailing_slash = Self::has_trailing_slash(name);
         if path.is_absolute() {
             Ok(
                 self.resolve_path_or_module(Some(context), path.to_owned(), trailing_slash, false)?.ok_or_else(|| {
