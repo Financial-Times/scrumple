@@ -1099,6 +1099,30 @@ where F: FnMut(&str, &str, Option<&str>, &InputOptions) {
     let ctx = "resolve/subdir/subdir2/hypothetical.js";
     assert_resolves(ctx,                          "shadowed",
          Some("resolve/subdir/subdir2/node_modules/shadowed/index.js"), &cjs);
+
+    let ctx = "resolve-order/hypothetical.js";
+    assert_resolves(ctx,  "./1-file",
+         Some("resolve-order/1-file"), &cjs);
+    assert_resolves(ctx,  "./2-file",
+         Some("resolve-order/2-file.js"), &cjs);
+    assert_resolves(ctx,  "./3-file",
+         Some("resolve-order/3-file.json"), &cjs);
+    assert_resolves(ctx,  "./1-dir",
+         Some("resolve-order/1-dir.js"), &cjs);
+    assert_resolves(ctx,  "./2-dir",
+         Some("resolve-order/2-dir.json"), &cjs);
+    assert_resolves(ctx,  "./3-dir",
+         Some("resolve-order/3-dir/index.js"), &cjs);
+    assert_resolves(ctx,  "./4-dir",
+         Some("resolve-order/4-dir/index.json"), &cjs);
+    assert_resolves(ctx,  "./1-dir/",
+         Some("resolve-order/1-dir/index.js"), &cjs);
+    assert_resolves(ctx,  "./2-dir/",
+         Some("resolve-order/2-dir/index.js"), &cjs);
+    assert_resolves(ctx,  "./3-dir/",
+         Some("resolve-order/3-dir/index.js"), &cjs);
+    assert_resolves(ctx,  "./4-dir/",
+         Some("resolve-order/4-dir/index.json"), &cjs);
 }
 
 #[test]
