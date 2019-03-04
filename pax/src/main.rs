@@ -1375,8 +1375,9 @@ impl Resolver {
     }
 
     fn resolve_main(&self, mut dir: PathBuf, name: &str) -> Result<Resolved, CliError> {
+        let trailing_slash = name.ends_with('/');
         dir.append_resolving(Path::new(name));
-        self.resolve_path_or_module(None, dir)?.ok_or_else(|| {
+        self.resolve_path_or_module(None, dir, trailing_slash, false)?.ok_or_else(|| {
             CliError::MainNotFound {
                 name: name.to_owned(),
             }
@@ -1391,9 +1392,10 @@ impl Resolver {
         }
 
         let path = Path::new(name);
+        let trailing_slash = name.ends_with('/');
         if path.is_absolute() {
             Ok(
-                self.resolve_path_or_module(Some(context), path.to_owned())?.ok_or_else(|| {
+                self.resolve_path_or_module(Some(context), path.to_owned(), trailing_slash, false)?.ok_or_else(|| {
                     CliError::ModuleNotFound {
                         context: context.to_owned(),
                         name: name.to_owned(),
@@ -1406,7 +1408,7 @@ impl Resolver {
             debug_assert!(did_pop);
             dir.append_resolving(path);
             Ok(
-                self.resolve_path_or_module(Some(context), dir)?.ok_or_else(|| {
+                self.resolve_path_or_module(Some(context), dir, trailing_slash, false)?.ok_or_else(|| {
                     CliError::ModuleNotFound {
                         context: context.to_owned(),
                         name: name.to_owned(),
@@ -1439,7 +1441,7 @@ impl Resolver {
                     _ => {}
                 }
                 let new_path = dir.join(&suffix);
-                if let Some(result) = self.resolve_path_or_module(Some(context), new_path)? {
+                if let Some(result) = self.resolve_path_or_module(Some(context), new_path, trailing_slash, false)? {
                     return Ok(result)
                 }
             }
@@ -1476,25 +1478,7 @@ impl Resolver {
         Ok(ModuleSubstitution::Normal)
     }
 
-    fn resolve_path_or_module(&self, context: Option<&Path>, mut path: PathBuf) -> Result<Option<Resolved>, CliError> {
-        if let Some(info) = self.cache.package_info(&mut path)? {
-            path.replace_with(&info.main);
-            if self.input_options.for_browser {
-                match info.browser_substitutions.0.get(&path) {
-                    Some(BrowserSubstitution::Ignore) => {
-                        return Ok(Some(Resolved::Ignore))
-                    }
-                    Some(BrowserSubstitution::Replace(ref to)) => {
-                        path.replace_with(to);
-                    }
-                    None => {},
-                }
-            }
-        }
-        self.resolve_path(context, path)
-    }
-
-    fn resolve_path(&self, context: Option<&Path>, mut path: PathBuf) -> Result<Option<Resolved>, CliError> {
+    fn resolve_path_or_module(&self, context: Option<&Path>, mut path: PathBuf, trailing_slash: bool, package: bool) -> Result<Option<Resolved>, CliError> {
         let package_info = if self.input_options.for_browser {
             self.cache.nearest_package_info(path.clone())?
         } else {
@@ -1525,47 +1509,59 @@ impl Resolver {
             };
         }
 
-        // <path>
-        check_path!(package_info, path);
-
-        let file_name = path.file_name().ok_or_else(|| CliError::RequireRoot {
-            context: context.map(|p| p.to_owned()),
-            path: path.clone(),
-        })?.to_owned();
-
-        if self.input_options.es6_syntax {
-            // <path>.mjs
-            let mut mjs_file_name = file_name.to_owned();
-            mjs_file_name.push(".mjs");
-            path.set_file_name(&mjs_file_name);
+        if !trailing_slash {
+            // <path>
             check_path!(package_info, path);
 
-            // <path>/index.mjs
+            let file_name = path.file_name().ok_or_else(|| CliError::RequireRoot {
+                context: context.map(|p| p.to_owned()),
+                path: path.clone(),
+            })?.to_owned();
+
+            let mut new_file_name = file_name.to_owned();
+
+            if self.input_options.es6_syntax {
+                // <path>.mjs
+                new_file_name.push(".mjs");
+                path.set_file_name(&new_file_name);
+                check_path!(package_info, path);
+                new_file_name.clear();
+                new_file_name.push(&file_name);
+            }
+
+            // <path>.js
+            new_file_name.push(".js");
+            path.set_file_name(&new_file_name);
+            check_path!(package_info, path);
+
+            // <path>.json
+            new_file_name.push("on"); // .js|on
+            path.set_file_name(&new_file_name);
+            check_path!(package_info, path);
+
             path.set_file_name(&file_name);
+        }
+
+        if !package {
+            if let Some(info) = self.cache.package_info(&mut path)? {
+                path.replace_with(&info.main);
+                return self.resolve_path_or_module(context, path, false, true);
+            }
+        }
+
+        if self.input_options.es6_syntax {
+            // <path>/index.mjs
             path.push("index.mjs");
             check_path!(package_info, path);
             path.pop();
         }
 
-        // <path>.js
-        let mut new_file_name = file_name.to_owned();
-        new_file_name.push(".js");
-        path.set_file_name(&new_file_name);
-        check_path!(package_info, path);
-
         // <path>/index.js
-        path.set_file_name(&file_name);
         path.push("index.js");
         check_path!(package_info, path);
         path.pop();
 
-        // <path>.json
-        new_file_name.push("on"); // .js|on
-        path.set_file_name(&new_file_name);
-        check_path!(package_info, path);
-
         // <path>/index.json
-        path.set_file_name(&file_name);
         path.push("index.json");
         check_path!(package_info, path);
         // path.pop();

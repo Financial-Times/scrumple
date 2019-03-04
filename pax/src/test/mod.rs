@@ -155,9 +155,9 @@ fn test_resolve_path_or_module() {
         let resolver = Resolver::new(input_options.clone());
         let expected = to_path.map(Resolved::Normal);
         // resolves with an empty cache...
-        assert_eq!(resolver.resolve_path_or_module(None, from_path.clone()).unwrap(), expected);
+        assert_eq!(resolver.resolve_path_or_module(None, from_path.clone(), false, false).unwrap(), expected);
         // ...and with everything cached
-        assert_eq!(resolver.resolve_path_or_module(None, from_path).unwrap(), expected);
+        assert_eq!(resolver.resolve_path_or_module(None, from_path, false, false).unwrap(), expected);
     }
     let cjs = InputOptions {
         for_browser: false,
