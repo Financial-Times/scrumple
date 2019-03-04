@@ -1374,14 +1374,14 @@ impl Resolver {
         }
     }
 
-    fn has_trailing_slash(name: &str) -> bool {
+    fn needs_dir(name: &str) -> bool {
         name.ends_with('/') || matches!(Path::new(name).components().last(), Some(Component::CurDir) | Some(Component::ParentDir))
     }
 
     fn resolve_main(&self, mut dir: PathBuf, name: &str) -> Result<Resolved, CliError> {
-        let trailing_slash = Self::has_trailing_slash(name);
+        let needs_dir = Self::needs_dir(name);
         dir.append_resolving(Path::new(name));
-        self.resolve_path_or_module(None, dir, trailing_slash, false)?.ok_or_else(|| {
+        self.resolve_path_or_module(None, dir, needs_dir, false)?.ok_or_else(|| {
             CliError::MainNotFound {
                 name: name.to_owned(),
             }
@@ -1396,10 +1396,10 @@ impl Resolver {
         }
 
         let path = Path::new(name);
-        let trailing_slash = Self::has_trailing_slash(name);
+        let needs_dir = Self::needs_dir(name);
         if path.is_absolute() {
             Ok(
-                self.resolve_path_or_module(Some(context), path.to_owned(), trailing_slash, false)?.ok_or_else(|| {
+                self.resolve_path_or_module(Some(context), path.to_owned(), needs_dir, false)?.ok_or_else(|| {
                     CliError::ModuleNotFound {
                         context: context.to_owned(),
                         name: name.to_owned(),
@@ -1412,7 +1412,7 @@ impl Resolver {
             debug_assert!(did_pop);
             dir.append_resolving(path);
             Ok(
-                self.resolve_path_or_module(Some(context), dir, trailing_slash, false)?.ok_or_else(|| {
+                self.resolve_path_or_module(Some(context), dir, needs_dir, false)?.ok_or_else(|| {
                     CliError::ModuleNotFound {
                         context: context.to_owned(),
                         name: name.to_owned(),
@@ -1445,7 +1445,7 @@ impl Resolver {
                     _ => {}
                 }
                 let new_path = dir.join(&suffix);
-                if let Some(result) = self.resolve_path_or_module(Some(context), new_path, trailing_slash, false)? {
+                if let Some(result) = self.resolve_path_or_module(Some(context), new_path, needs_dir, false)? {
                     return Ok(result)
                 }
             }
@@ -1482,7 +1482,7 @@ impl Resolver {
         Ok(ModuleSubstitution::Normal)
     }
 
-    fn resolve_path_or_module(&self, context: Option<&Path>, mut path: PathBuf, trailing_slash: bool, package: bool) -> Result<Option<Resolved>, CliError> {
+    fn resolve_path_or_module(&self, context: Option<&Path>, mut path: PathBuf, needs_dir: bool, package: bool) -> Result<Option<Resolved>, CliError> {
         let package_info = if self.input_options.for_browser {
             self.cache.nearest_package_info(path.clone())?
         } else {
@@ -1513,7 +1513,7 @@ impl Resolver {
             };
         }
 
-        if !trailing_slash {
+        if !needs_dir {
             // <path>
             check_path!(package_info, path);
 
