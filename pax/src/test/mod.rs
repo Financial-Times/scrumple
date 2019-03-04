@@ -396,20 +396,20 @@ where F: FnMut(&str, &str, Option<&str>, &InputOptions) {
     assert_resolves(ctx, "./named-jsz", None, &cjs);
 
     assert_resolves(ctx, "./file-and-dir",
-              Some("resolve/file-and-dir.js"), &esm);
+              Some("resolve/file-and-dir.js"), &cjs);
     assert_resolves(ctx, "./file-and-dir/",
-              Some("resolve/file-and-dir/index.js"), &esm);
+              Some("resolve/file-and-dir/index.js"), &cjs);
     assert_resolves(ctx, "./file-and-mod",
-              Some("resolve/file-and-mod.js"), &esm);
+              Some("resolve/file-and-mod.js"), &cjs);
     assert_resolves(ctx, "./file-and-mod/",
-              Some("resolve/file-and-mod/main.js"), &esm);
+              Some("resolve/file-and-mod/main.js"), &cjs);
     assert_resolves(ctx, "./dir-js/",
-              Some("resolve/dir-js/index.js"), &esm);
+              Some("resolve/dir-js/index.js"), &cjs);
     assert_resolves(ctx, "./mod-js-noext-rel/",
-              Some("resolve/mod-js-noext-rel/main-js.js"), &esm);
-    assert_resolves(ctx, "./named-js.js/", None, &esm);
-    assert_resolves(ctx, "./named-js/", None, &esm);
-    assert_resolves(ctx, "./named-noext/", None, &esm);
+              Some("resolve/mod-js-noext-rel/main-js.js"), &cjs);
+    assert_resolves(ctx, "./named-js.js/", None, &cjs);
+    assert_resolves(ctx, "./named-js/", None, &cjs);
+    assert_resolves(ctx, "./named-noext/", None, &cjs);
 
     let ctx = "resolve/subdir/hypothetical.js";
     assert_resolves(ctx, "./named-js", None, &cjs);
@@ -504,6 +504,22 @@ where F: FnMut(&str, &str, Option<&str>, &InputOptions) {
                Some("resolve/mod-js-slash-rel/main.js"), &cjs);
 
     assert_resolves(ctx, "../named-jsz", None, &cjs);
+
+    assert_resolves(ctx, "../file-and-dir",
+               Some("resolve/file-and-dir.js"), &cjs);
+    assert_resolves(ctx, "../file-and-dir/",
+               Some("resolve/file-and-dir/index.js"), &cjs);
+    assert_resolves(ctx, "../file-and-mod",
+               Some("resolve/file-and-mod.js"), &cjs);
+    assert_resolves(ctx, "../file-and-mod/",
+               Some("resolve/file-and-mod/main.js"), &cjs);
+    assert_resolves(ctx, "../dir-js/",
+               Some("resolve/dir-js/index.js"), &cjs);
+    assert_resolves(ctx, "../mod-js-noext-rel/",
+               Some("resolve/mod-js-noext-rel/main-js.js"), &cjs);
+    assert_resolves(ctx, "../named-js.js/", None, &cjs);
+    assert_resolves(ctx, "../named-js/", None, &cjs);
+    assert_resolves(ctx, "../named-noext/", None, &cjs);
 
     assert_resolves(ctx, "../mod-self-slash",
                Some("resolve/mod-self-slash/index.js"), &esm);
@@ -775,6 +791,22 @@ where F: FnMut(&str, &str, Option<&str>, &InputOptions) {
 
     assert_resolves(ctx,          "n-named-jsz", None, &cjs);
 
+    assert_resolves(ctx,          "n-file-and-dir",
+        Some("resolve/node_modules/n-file-and-dir.js"), &cjs);
+    assert_resolves(ctx,          "n-file-and-dir/",
+        Some("resolve/node_modules/n-file-and-dir/index.js"), &cjs);
+    assert_resolves(ctx,          "n-file-and-mod",
+        Some("resolve/node_modules/n-file-and-mod.js"), &cjs);
+    assert_resolves(ctx,          "n-file-and-mod/",
+        Some("resolve/node_modules/n-file-and-mod/main.js"), &cjs);
+    assert_resolves(ctx,          "n-dir-js/",
+        Some("resolve/node_modules/n-dir-js/index.js"), &cjs);
+    assert_resolves(ctx,          "n-mod-js-noext-rel/",
+        Some("resolve/node_modules/n-mod-js-noext-rel/main-js.js"), &cjs);
+    assert_resolves(ctx,          "n-named-js.js/", None, &cjs);
+    assert_resolves(ctx,          "n-named-js/", None, &cjs);
+    assert_resolves(ctx,          "n-named-noext/", None, &cjs);
+
     assert_resolves(ctx,          "./n-named-noext", None, &cjs);
     assert_resolves(ctx,          "./n-named-js.js", None, &cjs);
     assert_resolves(ctx,          "./n-named-json.json", None, &cjs);
@@ -825,6 +857,16 @@ where F: FnMut(&str, &str, Option<&str>, &InputOptions) {
     assert_resolves(ctx,          "./n-mod-js-slash-rel", None, &cjs);
 
     assert_resolves(ctx,          "./n-named-jsz", None, &cjs);
+
+    assert_resolves(ctx,          "./n-file-and-dir", None, &cjs);
+    assert_resolves(ctx,          "./n-file-and-dir/", None, &cjs);
+    assert_resolves(ctx,          "./n-file-and-mod", None, &cjs);
+    assert_resolves(ctx,          "./n-file-and-mod/", None, &cjs);
+    assert_resolves(ctx,          "./n-dir-js/", None, &cjs);
+    assert_resolves(ctx,          "./n-mod-js-noext-rel/", None, &cjs);
+    assert_resolves(ctx,          "./n-named-js.js/", None, &cjs);
+    assert_resolves(ctx,          "./n-named-js/", None, &cjs);
+    assert_resolves(ctx,          "./n-named-noext/", None, &cjs);
 
     assert_resolves(ctx,          "shadowed",
         Some("resolve/node_modules/shadowed/index.js"), &cjs);
@@ -927,6 +969,22 @@ where F: FnMut(&str, &str, Option<&str>, &InputOptions) {
 
     assert_resolves(ctx,          "shallow/s-named-jsz", None, &cjs);
 
+    assert_resolves(ctx,          "shallow/s-file-and-dir",
+        Some("resolve/node_modules/shallow/s-file-and-dir.js"), &cjs);
+    assert_resolves(ctx,          "shallow/s-file-and-dir/",
+        Some("resolve/node_modules/shallow/s-file-and-dir/index.js"), &cjs);
+    assert_resolves(ctx,          "shallow/s-file-and-mod",
+        Some("resolve/node_modules/shallow/s-file-and-mod.js"), &cjs);
+    assert_resolves(ctx,          "shallow/s-file-and-mod/",
+        Some("resolve/node_modules/shallow/s-file-and-mod/main.js"), &cjs);
+    assert_resolves(ctx,          "shallow/s-dir-js/",
+        Some("resolve/node_modules/shallow/s-dir-js/index.js"), &cjs);
+    assert_resolves(ctx,          "shallow/s-mod-js-noext-rel/",
+        Some("resolve/node_modules/shallow/s-mod-js-noext-rel/main-js.js"), &cjs);
+    assert_resolves(ctx,          "shallow/s-named-js.js/", None, &cjs);
+    assert_resolves(ctx,          "shallow/s-named-js/", None, &cjs);
+    assert_resolves(ctx,          "shallow/s-named-noext/", None, &cjs);
+
     assert_resolves(ctx,          "deep/dir1/dir2/dir3/d-named-noext",
         Some("resolve/node_modules/deep/dir1/dir2/dir3/d-named-noext"), &cjs);
     assert_resolves(ctx,          "deep/dir1/dir2/dir3/d-named-js.js",
@@ -1017,6 +1075,22 @@ where F: FnMut(&str, &str, Option<&str>, &InputOptions) {
         Some("resolve/node_modules/deep/dir1/dir2/dir3/d-mod-js-slash-rel/main.js"), &cjs);
 
     assert_resolves(ctx,          "deep/dir1/dir2/dir3/d-named-jsz", None, &cjs);
+
+    assert_resolves(ctx,          "deep/dir1/dir2/dir3/d-file-and-dir",
+        Some("resolve/node_modules/deep/dir1/dir2/dir3/d-file-and-dir.js"), &cjs);
+    assert_resolves(ctx,          "deep/dir1/dir2/dir3/d-file-and-dir/",
+        Some("resolve/node_modules/deep/dir1/dir2/dir3/d-file-and-dir/index.js"), &cjs);
+    assert_resolves(ctx,          "deep/dir1/dir2/dir3/d-file-and-mod",
+        Some("resolve/node_modules/deep/dir1/dir2/dir3/d-file-and-mod.js"), &cjs);
+    assert_resolves(ctx,          "deep/dir1/dir2/dir3/d-file-and-mod/",
+        Some("resolve/node_modules/deep/dir1/dir2/dir3/d-file-and-mod/main.js"), &cjs);
+    assert_resolves(ctx,          "deep/dir1/dir2/dir3/d-dir-js/",
+        Some("resolve/node_modules/deep/dir1/dir2/dir3/d-dir-js/index.js"), &cjs);
+    assert_resolves(ctx,          "deep/dir1/dir2/dir3/d-mod-js-noext-rel/",
+        Some("resolve/node_modules/deep/dir1/dir2/dir3/d-mod-js-noext-rel/main-js.js"), &cjs);
+    assert_resolves(ctx,          "deep/dir1/dir2/dir3/d-named-js.js/", None, &cjs);
+    assert_resolves(ctx,          "deep/dir1/dir2/dir3/d-named-js/", None, &cjs);
+    assert_resolves(ctx,          "deep/dir1/dir2/dir3/d-named-noext/", None, &cjs);
 
     let ctx = "resolve/subdir/hypothetical.js";
     assert_resolves(ctx,                 "shadowed",
