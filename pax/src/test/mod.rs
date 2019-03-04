@@ -689,6 +689,33 @@ where F: FnMut(&str, &str, Option<&str>, &InputOptions) {
     assert_resolves("resolve/mod-js-slash-rel/main/hypothetical.js", "../",
                Some("resolve/mod-js-slash-rel/main.js"), &cjs);
 
+    assert_resolves("resolve/file-and-dir/hypothetical.js", ".",
+               Some("resolve/file-and-dir/index.js"), &cjs);
+    assert_resolves("resolve/file-and-dir/hypothetical.js", "./",
+               Some("resolve/file-and-dir/index.js"), &cjs);
+    assert_resolves("resolve/file-and-dir/subdir/hypothetical.js", "..",
+               Some("resolve/file-and-dir/index.js"), &cjs);
+    assert_resolves("resolve/file-and-dir/subdir/hypothetical.js", "../",
+               Some("resolve/file-and-dir/index.js"), &cjs);
+    assert_resolves("resolve/file-and-mod/hypothetical.js", ".",
+               Some("resolve/file-and-mod/main.js"), &cjs);
+    assert_resolves("resolve/file-and-mod/hypothetical.js", "./",
+               Some("resolve/file-and-mod/main.js"), &cjs);
+    assert_resolves("resolve/file-and-mod/subdir/hypothetical.js", "..",
+               Some("resolve/file-and-mod/main.js"), &cjs);
+    assert_resolves("resolve/file-and-mod/subdir/hypothetical.js", "../",
+               Some("resolve/file-and-mod/main.js"), &cjs);
+
+    let ctx = "resolve/hypothetical.js";
+    assert_resolves(ctx, "./file-and-dir/submod",
+              Some("resolve/file-and-dir.js"), &cjs);
+    assert_resolves(ctx, "./file-and-dir/submod/",
+              Some("resolve/file-and-dir.js"), &cjs);
+    assert_resolves(ctx, "./file-and-mod/submod",
+              Some("resolve/file-and-mod.js"), &cjs);
+    assert_resolves(ctx, "./file-and-mod/submod/",
+              Some("resolve/file-and-mod.js"), &cjs);
+
     // absolute paths
 
     let ctx = "resolve/subdir/hypothetical.js";
