@@ -286,6 +286,10 @@ fn assert_resolves(context: &str, from: &str, to: Option<&str>, input_options: &
 fn test_resolve() {
   test_resolve_with(assert_resolves);
 }
+#[test]
+fn test_resolve_unicode() {
+  test_resolve_unicode_with(assert_resolves);
+}
 fn test_resolve_with<F>(mut assert_resolves: F)
 where F: FnMut(&str, &str, Option<&str>, &InputOptions) {
     let cjs = InputOptions {
@@ -1136,11 +1140,6 @@ where F: FnMut(&str, &str, Option<&str>, &InputOptions) {
          Some("resolve/subdir/subdir2/node_modules/shadowed/index.js"), &cjs);
 
     let ctx = "resolve/hypothetical.js";
-    assert_resolves(ctx,  "./unicode/𝌆",
-         Some("resolve/unicode/𝌆.js"), &cjs);
-    assert_resolves(ctx,  "./unicode/𝌆.js",
-         Some("resolve/unicode/𝌆.js"), &cjs);
-
     assert_resolves(ctx,  "./dotfiles", None, &cjs);
     assert_resolves(ctx,  "./dotfiles/", None, &esm);
 
@@ -1200,6 +1199,22 @@ where F: FnMut(&str, &str, Option<&str>, &InputOptions) {
          Some("resolve-order/4-dir/index.json"), &cjs);
 }
 
+fn test_resolve_unicode_with<F>(mut assert_resolves: F)
+where F: FnMut(&str, &str, Option<&str>, &InputOptions) {
+    let cjs = InputOptions {
+        for_browser: false,
+        es6_syntax: false,
+        es6_syntax_everywhere: false,
+        external: Default::default(),
+    };
+
+    let ctx = "resolve/hypothetical.js";
+    assert_resolves(ctx,  "./unicode/𝌆",
+         Some("resolve/unicode/𝌆.js"), &cjs);
+    assert_resolves(ctx,  "./unicode/𝌆.js",
+         Some("resolve/unicode/𝌆.js"), &cjs);
+}
+
 #[test]
 fn test_resolve_consistency() {
     // meta-test: ensure test_resolve matches node behavior
@@ -1211,7 +1226,7 @@ fn test_resolve_consistency() {
     let mut esm = FnvHashMap::default();
 
     {
-        let append = |ctx: &str, from: &str, to: Option<&str>, input_options: &InputOptions| {
+        let mut append = |ctx: &str, from: &str, to: Option<&str>, input_options: &InputOptions| {
             let assertions = if input_options.es6_syntax {
                 &mut esm
             } else {
@@ -1222,7 +1237,8 @@ fn test_resolve_consistency() {
                 .insert((from.to_owned(), to.map(ToOwned::to_owned)));
         };
 
-        test_resolve_with(append);
+        test_resolve_with(&mut append);
+        test_resolve_unicode_with(&mut append);
     }
 
     fn make_source(base: &Path, cases: &Cases) -> Vec<u8> {

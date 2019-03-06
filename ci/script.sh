@@ -11,11 +11,15 @@ main() {
     fi
 
     if [ "$TARGET" = "x86_64-apple-darwin" ] && [ "$TRAVIS_OS_NAME" = osx ]; then
-      cargo test
-      cargo test --release
+        cargo test
+        cargo test --release
     else
-      cross test --target $TARGET -- --skip test_resolve_consistency
-      cross test --target $TARGET --release -- --skip test_resolve_consistency
+        local skip=()
+        for s in ${SKIP_TESTS:-test_resolve_consistency}; do
+            if [ -n $s ]; then skip=("${skip[@]}" --skip $s); fi
+        done
+        cross test --target $TARGET -- "${skip[@]}"
+        cross test --target $TARGET --release -- "${skip[@]}"
     fi
 }
 
