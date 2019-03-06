@@ -8,3 +8,4 @@ node_modules
 .cargo
 !pax/examples/browser/**/node_modules
 !pax/fixtures/**/node_modules
+pax/fixtures/tools/node_modules

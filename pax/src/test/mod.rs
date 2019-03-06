@@ -4,10 +4,9 @@
 extern crate test;
 
 use serde_json;
+use std::{fs, ffi, process};
 use std::io::{self, Write};
-use std::fs;
 use std::path::Path;
-use std::process;
 use walkdir::WalkDir;
 use super::*;
 
@@ -1223,11 +1222,14 @@ fn test_resolve_consistency() {
     type CaseMap = FnvHashMap<String, Cases>;
 
     let mut cjs = FnvHashMap::default();
+    let mut browser = FnvHashMap::default();
     let mut esm = FnvHashMap::default();
 
     {
         let mut append = |ctx: &str, from: &str, to: Option<&str>, input_options: &InputOptions| {
-            let assertions = if input_options.es6_syntax {
+            let assertions = if input_options.for_browser {
+                &mut browser
+            } else if input_options.es6_syntax {
                 &mut esm
             } else {
                 &mut cjs
@@ -1239,6 +1241,7 @@ fn test_resolve_consistency() {
 
         test_resolve_with(&mut append);
         test_resolve_unicode_with(&mut append);
+        test_browser_with(&mut append);
     }
 
     fn make_source(base: &Path, cases: &Cases) -> Vec<u8> {
@@ -1280,7 +1283,7 @@ fn test_resolve_consistency() {
         // io::stdout().write_all(&b).unwrap();
         b
     }
-    fn test_file(base: &Path, esm: bool, ctx: &str, cases: &Cases) {
+    fn test_file(base: &Path, esm: bool, browser: bool, ctx: &str, cases: &Cases) {
         let mut ctx_dir = base.to_owned();
         ctx_dir.append_resolving(ctx);
         ctx_dir.pop();
@@ -1289,30 +1292,59 @@ fn test_resolve_consistency() {
 
         let mut file = tempfile::Builder::new()
             .suffix(ext)
-            .tempfile_in(ctx_dir)
+            .tempfile_in(&ctx_dir)
             .unwrap();
         file.as_file_mut()
             .write_all(&make_source(base, cases))
             .unwrap();
 
-        let mut args = Vec::new();
-        if esm {
-            args.push("--experimental-modules");
+        let path = file.path().to_str().unwrap();
+        let output;
+        if browser {
+            let to_file = tempfile::Builder::new()
+                .suffix(ext)
+                .tempfile_in(&ctx_dir)
+                .unwrap();
+            let to_path = to_file.path().to_str().unwrap();
+
+            // let mut browserify_path = fixture_path();
+            // browserify_path.push("tools/node_modules/.bin/browserify");
+            let browserify_path = base.join("tools/node_modules/.bin/browserify");
+            dbg!(browserify_path.exists());
+            let ok = process::Command::new(browserify_path)
+                .stdout(process::Stdio::piped())
+                .args(&[&path, &to_path])
+                .status()
+                .expect("failed to run browserify")
+                .success();
+            if !ok {
+                panic!("browserify failed");
+            }
+
+            output = process::Command::new("node")
+                .args(&[&to_path])
+                .output()
+                .expect("failed to run node");
+        } else {
+            let mut args = Vec::new();
+            if esm {
+                args.push("--experimental-modules");
+            }
+            args.push(path);
+            output = process::Command::new("node")
+                .args(&args)
+                .output()
+                .expect("failed to run node");
         }
-        args.push(file.path().to_str().unwrap());
-        let output = process::Command::new("node")
-            .args(&args)
-            .output()
-            .expect("failed to run node");
 
         if !output.status.success() {
             io::stderr().write(&output.stderr).unwrap();
-            assert!(false);
+            panic!("tests are inconsistent with node/browserify");
         }
     }
-    fn test_file_map(base: &Path, esm: bool, map: &CaseMap) {
+    fn test_file_map(base: &Path, esm: bool, browser: bool, map: &CaseMap) {
         for (ctx, cases) in map.into_iter() {
-            test_file(base, esm, ctx, cases)
+            test_file(base, esm, browser, ctx, cases)
         }
     }
 
@@ -1326,14 +1358,52 @@ fn test_resolve_consistency() {
 
         let new_path = base_dir.path().join(local_path);
         // println!("{} {}", entry.path().display(), new_path.display());
-        if entry.file_type().is_dir() {
-            fs::create_dir(new_path).unwrap();
-        } else {
-            fs::copy(entry.path(), new_path).unwrap();
+        if !local_path.starts_with("tools/node_modules") {
+            if entry.file_type().is_dir() {
+                fs::create_dir(new_path).unwrap();
+            } else {
+                fs::copy(entry.path(), new_path).unwrap();
+            }
         }
     }
-    test_file_map(base_dir.path(), false, &cjs);
-    test_file_map(base_dir.path(), true, &esm);
+    npm_install(&base_dir.path().join("tools"));
+    test_file_map(base_dir.path(), false, false, &cjs);
+    test_file_map(base_dir.path(), false, true, &browser);
+    test_file_map(base_dir.path(), true, false, &esm);
+}
+
+fn test_browser_with<F>(mut assert_resolves: F)
+where F: FnMut(&str, &str, Option<&str>, &InputOptions) {
+    let no = InputOptions {
+        for_browser: false,
+        es6_syntax: true,
+        es6_syntax_everywhere: false,
+        external: Default::default(),
+    };
+    let br = InputOptions {
+        for_browser: true,
+        es6_syntax: true,
+        es6_syntax_everywhere: false,
+        external: Default::default(),
+    };
+
+    let ctx = "browser/hypothetical.js";
+    assert_resolves(ctx,  "./alternate-main-rel",
+               Some("browser/alternate-main-rel/main-default.js"), &no);
+    assert_resolves(ctx,  "./alternate-main-rel/main-default.js",
+               Some("browser/alternate-main-rel/main-default.js"), &no);
+    assert_resolves(ctx,  "./alternate-main-bare",
+               Some("browser/alternate-main-bare/main-default.js"), &no);
+    assert_resolves(ctx,  "./alternate-main-bare/main-default.js",
+               Some("browser/alternate-main-bare/main-default.js"), &no);
+    assert_resolves(ctx,  "./alternate-main-rel",
+               Some("browser/alternate-main-rel/main-browser.js"), &br);
+    assert_resolves(ctx,  "./alternate-main-rel/main-default.js",
+               Some("browser/alternate-main-rel/main-browser.js"), &br);
+    assert_resolves(ctx,  "./alternate-main-bare",
+               Some("browser/alternate-main-bare/main-browser.js"), &br);
+    assert_resolves(ctx,  "./alternate-main-bare/main-default.js",
+               Some("browser/alternate-main-bare/main-browser.js"), &br);
 }
 
 #[test]
@@ -1402,26 +1472,25 @@ fn test_external() {
         Resolved::Normal(PathBuf::from("resolve/node_modules/external/subdir/index.js")), &non);
 }
 
+fn npm_install(dir: &Path) {
+    let node_modules = dir.join("node_modules");
+    if node_modules.is_dir() { return }
+
+    let ok = process::Command::new("npm")
+        .arg("install")
+        .arg("--silent")
+        // .arg("--verbose")
+        .current_dir(dir)
+        .status()
+        .expect("failed to run `npm install`")
+        .success();
+    if !ok {
+        panic!("`npm install` did not exit successfully");
+    }
+}
+
 cfg_if! {
     if #[cfg(feature = "bench")] {
-        fn npm_install(dir: &Path) {
-            let node_modules = dir.join("node_modules");
-            if node_modules.is_dir() { return }
-
-            let ok = process::Command::new("npm")
-                .arg("install")
-                .arg("--silent")
-                .current_dir(dir)
-                .spawn()
-                .expect("failed to start `npm install`")
-                .wait()
-                .unwrap()
-                .success();
-            if !ok {
-                panic!("`npm install` did not exit successfully");
-            }
-        }
-
         #[bench]
         fn bench_vlq(b: &mut test::Bencher) {
             let mut vlq = Vlq::new();
