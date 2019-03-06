@@ -1141,6 +1141,40 @@ where F: FnMut(&str, &str, Option<&str>, &InputOptions) {
     assert_resolves(ctx,  "./unicode/𝌆.js",
          Some("resolve/unicode/𝌆.js"), &cjs);
 
+    assert_resolves(ctx,  "./dotfiles", None, &cjs);
+    assert_resolves(ctx,  "./dotfiles/", None, &esm);
+
+    assert_resolves(ctx,  "./dotfiles/.thing",
+               Some("resolve/dotfiles/.thing"), &cjs);
+    assert_resolves(ctx,  "./dotfiles/.thing-js",
+               Some("resolve/dotfiles/.thing-js.js"), &cjs);
+    assert_resolves(ctx,  "./dotfiles/.thing-js.js",
+               Some("resolve/dotfiles/.thing-js.js"), &cjs);
+    assert_resolves(ctx,  "./dotfiles/.thing-json",
+               Some("resolve/dotfiles/.thing-json.json"), &cjs);
+    assert_resolves(ctx,  "./dotfiles/.thing-json.json",
+               Some("resolve/dotfiles/.thing-json.json"), &cjs);
+    assert_resolves(ctx,  "./dotfiles/.thing-mjs",
+               Some("resolve/dotfiles/.thing-mjs.mjs"), &esm);
+    assert_resolves(ctx,  "./dotfiles/.thing-mjs.mjs",
+               Some("resolve/dotfiles/.thing-mjs.mjs"), &esm);
+
+    assert_resolves(ctx,  "./dotfiles/.js",
+               Some("resolve/dotfiles/.js"), &cjs);
+    assert_resolves(ctx,  "./dotfiles/.json",
+               Some("resolve/dotfiles/.json"), &cjs);
+    assert_resolves(ctx,  "./dotfiles/.mjs",
+               Some("resolve/dotfiles/.mjs"), &esm);
+
+    assert_resolves(ctx,  "./dotfiles/mod-noext",
+               Some("resolve/dotfiles/mod-noext/.thing"), &cjs);
+    assert_resolves(ctx,  "./dotfiles/mod-js",
+               Some("resolve/dotfiles/mod-js/.thing-js.js"), &cjs);
+    assert_resolves(ctx,  "./dotfiles/mod-json",
+               Some("resolve/dotfiles/mod-json/.thing-json.json"), &cjs);
+    assert_resolves(ctx,  "./dotfiles/mod-mjs",
+               Some("resolve/dotfiles/mod-mjs/.thing-mjs.mjs"), &esm);
+
     let ctx = "resolve-order/hypothetical.js";
     assert_resolves(ctx,  "./1-file",
          Some("resolve-order/1-file"), &cjs);
