@@ -1075,7 +1075,7 @@ pub enum CliError {
     Es6(es6::Error),
     Lex(lex::Error),
     ParseStrLit(lex::ParseStrLitError),
-    Box(Box<Any + Send + 'static>),
+    Box(Box<dyn Any + Send + 'static>),
 }
 impl From<io::Error> for CliError {
     fn from(inner: io::Error) -> CliError {
@@ -1107,8 +1107,8 @@ impl From<lex::ParseStrLitError> for CliError {
         CliError::ParseStrLit(inner)
     }
 }
-impl From<Box<Any + Send + 'static>> for CliError {
-    fn from(inner: Box<Any + Send + 'static>) -> CliError {
+impl From<Box<dyn Any + Send + 'static>> for CliError {
+    fn from(inner: Box<dyn Any + Send + 'static>) -> CliError {
         CliError::Box(inner)
     }
 }
