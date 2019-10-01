@@ -34,6 +34,7 @@ use esparse::lex::{self, Tt};
 use fnv::{FnvHashMap, FnvHashSet};
 use notify::Watcher;
 use regex::Regex;
+use serde::de::SeqAccess;
 use serde::de::{self, Deserialize, Deserializer, Visitor};
 use serde::ser::{Serialize, SerializeSeq, Serializer};
 use std::any::Any;
@@ -1729,7 +1730,7 @@ impl<'de> Deserialize<'de> for PackageInfo {
         #[derive(Debug, Default, PartialEq, Eq, Deserialize)]
         #[serde(default)]
         struct RawPackageInfo {
-            #[serde(deserialize_with = "from_str_or_none")]
+            #[serde(deserialize_with = "from_main")]
             main: Option<PathBuf>,
             browser: BrowserField,
         }
@@ -1890,6 +1891,48 @@ where
     }
 
     deserializer.deserialize_any(FromStrOrNone(PhantomData))
+}
+
+fn from_main<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    for<'a> T: From<&'a str> + Deserialize<'de>,
+    D: Deserializer<'de>,
+{
+    struct FromMain<T>(PhantomData<T>);
+
+    impl<'de, T> Visitor<'de> for FromMain<T>
+    where
+        for<'a> T: From<&'a str> + Deserialize<'de>,
+    {
+        type Value = Option<T>;
+
+        fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "string or array or nothing")
+        }
+
+        fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
+            Ok(Some(T::from(v)))
+        }
+
+        fn visit_seq<S>(self, mut seq: S) -> Result<Self::Value, S::Error>
+        where
+            S: SeqAccess<'de>,
+        {
+            while let Ok(item) = seq.next_element() {
+                if let Some(item) = item {
+                    let item: &str = item;
+                    if item.ends_with(".js") {
+                        return Ok(Some(T::from(item)));
+                    }
+                }
+            }
+            Ok(None)
+        }
+
+        visit_unconditionally!('de None, bool i64 i128 u64 u128 f64 bytes none some unit newtype_struct map enum);
+    }
+
+    deserializer.deserialize_any(FromMain(PhantomData))
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
