@@ -1188,7 +1188,7 @@ fn main() {
 trait PathBufExt {
     fn append_resolving<P: AsRef<Path> + ?Sized>(&mut self, more: &P);
     fn prepend_resolving<P: AsRef<Path> + ?Sized>(&mut self, base: &P);
-    fn clear(&mut self);
+    fn empty(&mut self);
     fn replace_with<P: AsRef<Path> + ?Sized>(&mut self, that: &P);
     fn as_mut_vec(&mut self) -> &mut Vec<u8>;
 }
