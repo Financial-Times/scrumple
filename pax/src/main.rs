@@ -1897,32 +1897,7 @@ impl<'de> Deserialize<'de> for BrowserField {
     }
 }
 
-fn from_str_or_none<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
-where
-    for<'a> T: From<&'a str> + Deserialize<'de>,
-    D: Deserializer<'de>,
-{
-    struct FromStrOrNone<T>(PhantomData<T>);
-
-    impl<'de, T> Visitor<'de> for FromStrOrNone<T>
-    where
-        for<'a> T: From<&'a str> + Deserialize<'de>,
-    {
-        type Value = Option<T>;
-
-        fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            write!(f, "anything at all")
-        }
-        fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
-            Ok(Some(T::from(v)))
-        }
-
-        visit_unconditionally!('de None, bool i64 i128 u64 u128 f64 bytes none some unit newtype_struct seq map enum);
-    }
-
-    deserializer.deserialize_any(FromStrOrNone(PhantomData))
-}
-
+// The main might be an array or a string of arrays
 fn from_main<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
 where
     for<'a> T: From<&'a str> + Deserialize<'de>,
