@@ -210,6 +210,12 @@ pub fn module_to_cjs<'f, 's>(
         )
         .unwrap();
     }
+
+    let mut bind_names = vec![];
+    let mut bind_calls = vec![];
+
+    fn bind_call(bind: &str) -> String {
+        format!("imports[\"{}\"]", bind)
     }
 
     if !imports.is_empty() {
@@ -222,7 +228,7 @@ pub fn module_to_cjs<'f, 's>(
             )
             .unwrap();
         }
-        write!(source_prefix, "\n  return Object.freeze(Object.create(null, {{\n    [Symbol.toStringTag]: {{value: 'ModuleImports'}},").unwrap();
+        write!(source_prefix, "\n  return Object.create(null, {{\n    [Symbol.toStringTag]: {{value: 'ModuleImports'}},").unwrap();
         for (i, import) in imports.iter().enumerate() {
             if let Some(bind) = import.default_bind {
                 write!(
@@ -231,6 +237,8 @@ pub fn module_to_cjs<'f, 's>(
                     bind, i,
                 )
                 .unwrap();
+                bind_names.push(bind);
+                bind_calls.push(bind_call(bind));
             }
             match import.binds {
                 Bindings::None => {}
@@ -241,6 +249,8 @@ pub fn module_to_cjs<'f, 's>(
                         bind, i,
                     )
                     .unwrap();
+                    bind_names.push(bind);
+                    bind_calls.push(bind_call(bind));
                 }
                 Bindings::Named(ref specs) => {
                     for spec in specs {
@@ -250,14 +260,16 @@ pub fn module_to_cjs<'f, 's>(
                             spec.bind, i, spec.name,
                         )
                         .unwrap();
+                        bind_names.push(spec.bind);
+                        bind_calls.push(bind_call(spec.bind));
                     }
                 }
             }
         }
-        write!(source_prefix, "\n  }}))\n}}()) ").unwrap();
+        write!(source_prefix, "\n  }})\n}}()); ").unwrap();
     }
 
-    write!(source_prefix, "~function() {{").unwrap();
+    write!(source_prefix, "; ~function({}) {{", bind_names.join(", ")).unwrap();
 
     if is_module {
         write!(source_prefix, "\n'use strict';\n").unwrap();
@@ -339,7 +351,7 @@ pub fn module_to_cjs<'f, 's>(
     Ok(CjsModule {
         source_prefix,
         source,
-        source_suffix: "}()".to_owned(),
+        source_suffix: format!("}}({})", bind_calls.join(", ")),
         deps,
     })
 }
