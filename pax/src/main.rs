@@ -564,6 +564,7 @@ enum PathSubstitution {
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct InputOptions {
     pub for_browser: bool,
+    pub for_bower: bool,
     pub es6_syntax: bool,
     pub es6_syntax_everywhere: bool,
     pub external: FnvHashSet<String>,
@@ -741,7 +742,8 @@ fn run() -> Result<(), CliError> {
     let mut input = None;
     let mut output = None;
     let mut map = None;
-    let mut for_browser = true;
+    let for_browser = true;
+    let mut for_bower = false;
     let mut es6_syntax = true;
     let mut es6_syntax_everywhere = true;
     let mut map_inline = false;
@@ -775,7 +777,7 @@ fn run() -> Result<(), CliError> {
             }
             "-I" | "--map-inline" => map_inline = true,
             "-M" | "--no-map" => no_map = true,
-            "-b" | "--for-browser" => for_browser = true,
+            "-b" | "--for-bower" => for_bower = true,
             "-e" | "--es-syntax" => es6_syntax = true,
             "-E" | "--es-syntax-everywhere" => {
                 es6_syntax = true;
@@ -859,6 +861,7 @@ fn run() -> Result<(), CliError> {
 
     let input_options = InputOptions {
         for_browser,
+        for_bower,
         es6_syntax,
         es6_syntax_everywhere,
         external,
@@ -1023,10 +1026,8 @@ Options:
         Ignore references to node.js core modules like 'events' and leave them
         as require('<module>') references in the bundle.
 
-    -b, --for-browser
-        Perform substitutions specified by the `browser` field in package.json.
-
-        https://github.com/defunctzombie/package-browser-field-spec
+    -b, --for-bower
+        Use bower.json instead of package.json
 
     -h, --help
         Print this message.
@@ -1423,6 +1424,14 @@ impl Worker {
     }
 }
 
+fn get_component_dir(for_bower: bool) -> &'static str {
+    if for_bower {
+        "bower_components"
+    } else {
+        "node_modules"
+    }
+}
+
 impl Resolver {
     fn new(input_options: InputOptions) -> Self {
         Resolver {
@@ -1488,14 +1497,15 @@ impl Resolver {
                 }
                 ModuleSubstitution::Normal => {}
             }
+            let component_dir = get_component_dir(self.input_options.for_bower);
 
-            let mut suffix = PathBuf::from("node_modules");
+            let mut suffix = PathBuf::from(component_dir);
             suffix.push(name);
 
             let mut dir = context.to_owned();
             while dir.pop() {
                 match dir.file_name() {
-                    Some(s) if s == "node_modules" => continue,
+                    Some(s) if s == component_dir => continue,
                     _ => {}
                 }
                 let new_path = dir.join(&suffix);
@@ -1524,7 +1534,10 @@ impl Resolver {
         }
         if self.input_options.for_browser {
             if let Some(p) = context.parent() {
-                if let Some(info) = self.cache.nearest_package_info(p.to_owned())? {
+                if let Some(info) = self
+                    .cache
+                    .nearest_package_info(p.to_owned(), self.input_options.for_bower)?
+                {
                     match info.browser_substitutions.0.get(Path::new(module_name)) {
                         Some(&BrowserSubstitution::Ignore) => {
                             return Ok(ModuleSubstitution::Ignore)
@@ -1550,7 +1563,8 @@ impl Resolver {
         package: bool,
     ) -> Result<Option<Resolved>, CliError> {
         let package_info = if self.input_options.for_browser {
-            self.cache.nearest_package_info(path.clone())?
+            self.cache
+                .nearest_package_info(path.clone(), self.input_options.for_bower)?
         } else {
             None
         };
@@ -1614,7 +1628,10 @@ impl Resolver {
         }
 
         if !package {
-            if let Some(info) = self.cache.package_info(&mut path)? {
+            if let Some(info) = self
+                .cache
+                .package_info(&mut path, self.input_options.for_bower)?
+            {
                 path.replace_with(&info.main);
                 return self.resolve_path_or_module(context, path, false, true);
             }
@@ -1659,10 +1676,14 @@ impl Resolver {
 }
 
 impl PackageCache {
-    fn nearest_package_info(&self, mut dir: PathBuf) -> Result<Option<Rc<PackageInfo>>, CliError> {
+    fn nearest_package_info(
+        &self,
+        mut dir: PathBuf,
+        for_bower: bool,
+    ) -> Result<Option<Rc<PackageInfo>>, CliError> {
         loop {
-            if !matches!(dir.file_name(), Some(s) if s == "node_modules") {
-                if let Some(info) = self.package_info(&mut dir)? {
+            if !matches!(dir.file_name(), Some(s) if s == get_component_dir(for_bower)) {
+                if let Some(info) = self.package_info(&mut dir, for_bower)? {
                     return Ok(Some(info));
                 }
             }
@@ -1671,12 +1692,21 @@ impl PackageCache {
             }
         }
     }
-    fn package_info(&self, dir: &mut PathBuf) -> Result<Option<Rc<PackageInfo>>, CliError> {
+    fn package_info(
+        &self,
+        dir: &mut PathBuf,
+        for_bower: bool,
+    ) -> Result<Option<Rc<PackageInfo>>, CliError> {
         let mut pkgs = self.pkgs.borrow_mut();
+        let manifest_file_name = if for_bower {
+            "bower.json"
+        } else {
+            "package.json"
+        };
         Ok(pkgs
             .entry(dir.clone())
             .or_insert_with(|| {
-                dir.push("package.json");
+                dir.push(manifest_file_name);
                 if let Ok(file) = fs::File::open(&dir) {
                     let buf_reader = io::BufReader::new(file);
                     if let Ok(mut info) = serde_json::from_reader::<_, PackageInfo>(buf_reader) {
