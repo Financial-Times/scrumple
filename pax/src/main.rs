@@ -3,16 +3,16 @@
 #[macro_use]
 extern crate esparse;
 extern crate crossbeam;
-extern crate num_cpus;
 extern crate notify;
+extern crate num_cpus;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
-extern crate serde_json;
-extern crate memchr;
 extern crate base64;
-extern crate regex;
 extern crate fnv;
+extern crate memchr;
+extern crate regex;
+extern crate serde_json;
 #[macro_use]
 extern crate matches;
 #[macro_use]
@@ -29,29 +29,29 @@ extern crate tempfile;
 #[cfg(test)]
 extern crate walkdir;
 
-use std::{env, process, io, fs, thread, time, iter, fmt, str, string, mem};
-use std::io::prelude::*;
-use std::fmt::{Display, Write};
-use std::path::{self, PathBuf, Path, Component};
-use std::sync::mpsc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::marker::PhantomData;
-use std::sync::Arc;
-use std::rc::Rc;
+use crossbeam::sync::SegQueue;
+use esparse::lex::{self, Tt};
+use fnv::{FnvHashMap, FnvHashSet};
+use notify::Watcher;
+use regex::Regex;
+use serde::de::{self, Deserialize, Deserializer, Visitor};
+use serde::ser::{Serialize, SerializeSeq, Serializer};
 use std::any::Any;
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::ffi::OsString;
-use fnv::{FnvHashMap, FnvHashSet};
-use crossbeam::sync::SegQueue;
-use notify::Watcher;
-use esparse::lex::{self, Tt};
-use serde::de::{self, Deserialize, Deserializer, Visitor};
-use serde::ser::{Serialize, Serializer, SerializeSeq};
-use regex::Regex;
+use std::fmt::{Display, Write};
+use std::io::prelude::*;
+use std::marker::PhantomData;
+use std::path::{self, Component, Path, PathBuf};
+use std::rc::Rc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc;
+use std::sync::Arc;
+use std::{env, fmt, fs, io, iter, mem, process, str, string, thread, time};
 
-mod opts;
 mod es6;
+mod opts;
 
 macro_rules! map {
     {} => {
@@ -71,9 +71,39 @@ macro_rules! map {
 
 const HEAD_JS: &str = include_str!("head.js");
 const TAIL_JS: &str = include_str!("tail.js");
-const CORE_MODULES: &[&str] = &["assert", "buffer", "child_process", "cluster", "crypto", "dgram", "dns", "domain", "events", "fs", "http", "https", "net", "os", "path", "punycode", "querystring", "readline", "stream", "string_decoder", "tls", "tty", "url", "util", "v8", "vm", "zlib"];
+const CORE_MODULES: &[&str] = &[
+    "assert",
+    "buffer",
+    "child_process",
+    "cluster",
+    "crypto",
+    "dgram",
+    "dns",
+    "domain",
+    "events",
+    "fs",
+    "http",
+    "https",
+    "net",
+    "os",
+    "path",
+    "punycode",
+    "querystring",
+    "readline",
+    "stream",
+    "string_decoder",
+    "tls",
+    "tty",
+    "url",
+    "util",
+    "v8",
+    "vm",
+    "zlib",
+];
 
-fn cjs_parse_deps<'f, 's>(lex: &mut lex::Lexer<'f, 's>) -> Result<FnvHashSet<Cow<'s, str>>, CliError> {
+fn cjs_parse_deps<'f, 's>(
+    lex: &mut lex::Lexer<'f, 's>,
+) -> Result<FnvHashSet<Cow<'s, str>>, CliError> {
     // TODO should we panic on dynamic requires?
     let mut deps = FnvHashSet::default();
     loop {
@@ -126,7 +156,8 @@ struct Writer<'a, 'b> {
 
 impl<'a, 'b> Writer<'a, 'b> {
     fn sorted_modules(&self) -> Vec<(&Path, &Module)> {
-        let mut modules = self.modules
+        let mut modules = self
+            .modules
             .iter()
             .map(|(p, m)| (p.as_path(), m))
             .collect::<Vec<_>>();
@@ -160,7 +191,10 @@ impl<'a, 'b> Writer<'a, 'b> {
                 w.write_all(b"\n")?;
             }
             w.write_all(info.source.body.as_bytes())?;
-            if !matches!(info.source.body.chars().last(), None | Some('\n') | Some('\r') | Some('\u{2028}') | Some('\u{2029}')) {
+            if !matches!(
+                info.source.body.chars().last(),
+                None | Some('\n') | Some('\r') | Some('\u{2028}') | Some('\u{2029}')
+            ) {
                 w.write_all(b"\n")?;
             }
             if !info.source.suffix.is_empty() {
@@ -179,7 +213,8 @@ impl<'a, 'b> Writer<'a, 'b> {
             SourceMapOutput::Inline => {
                 let mut map = Vec::new();
                 self.write_map_to(&mut map)?;
-                write!(w,
+                write!(
+                    w,
                     "//# sourceMappingURL=data:application/json;charset=utf-8;base64,{data}\n",
                     data = base64::encode(&map),
                 )?;
@@ -188,10 +223,7 @@ impl<'a, 'b> Writer<'a, 'b> {
                 // TODO handle error
                 let relative = path.relative_from(output_file.parent().unwrap());
                 let map = relative.as_ref().unwrap_or(path);
-                write!(w,
-                    "//# sourceMappingURL={map}\n",
-                    map = map.display(),
-                )?;
+                write!(w, "//# sourceMappingURL={map}\n", map = map.display(),)?;
             }
         }
         Ok(())
@@ -242,7 +274,11 @@ impl<'a, 'b> Writer<'a, 'b> {
             fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
                 let mut seq = serializer.serialize_seq(None)?;
                 for (_, module) in self.modules {
-                    let content = module.source.original.as_ref().unwrap_or(&module.source.body);
+                    let content = module
+                        .source
+                        .original
+                        .as_ref()
+                        .unwrap_or(&module.source.body);
                     seq.serialize_element(content)?;
                 }
                 seq.end()
@@ -293,10 +329,13 @@ impl<'a, 'b> Writer<'a, 'b> {
                         }
                         w.write_str(";")?;
                     }
-                    if !matches!(module.source.body.chars().last(), None | Some('\n') | Some('\r') | Some('\u{2028}') | Some('\u{2029}')) {
+                    if !matches!(
+                        module.source.body.chars().last(),
+                        None | Some('\n') | Some('\r') | Some('\u{2028}') | Some('\u{2029}')
+                    ) {
                         w.write_str(";")?;
                     }
-                    for _ in 0..count_lines(&module.source.suffix)-1 {
+                    for _ in 0..count_lines(&module.source.suffix) - 1 {
                         w.write_str(";")?;
                     }
                 }
@@ -307,15 +346,18 @@ impl<'a, 'b> Writer<'a, 'b> {
             }
         }
 
-        serde_json::to_writer(w, &SourceMap {
-            version: 3,
-            file: "",
-            source_root: "",
-            sources: Sources { modules, dir },
-            sources_content: SourcesContent { modules },
-            names: [],
-            mappings: Mappings { modules },
-        })
+        serde_json::to_writer(
+            w,
+            &SourceMap {
+                version: 3,
+                file: "",
+                source_root: "",
+                sources: Sources { modules, dir },
+                sources_content: SourcesContent { modules },
+                names: [],
+                mappings: Mappings { modules },
+            },
+        )
     }
 
     fn stringify_deps(deps: &FnvHashMap<String, Resolved>) -> String {
@@ -409,9 +451,7 @@ struct Vlq {
 }
 impl Vlq {
     fn new() -> Self {
-        Self {
-            buf: [0u8; 13],
-        }
+        Self { buf: [0u8; 13] }
     }
 
     fn enc(&mut self, n: isize) -> &str {
@@ -428,7 +468,7 @@ impl Vlq {
             l += 1;
         }
         self.buf[l] = B64[y];
-        str::from_utf8(&self.buf[0..l+1]).unwrap()
+        str::from_utf8(&self.buf[0..l + 1]).unwrap()
     }
 }
 const B64: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -466,8 +506,15 @@ enum Work {
 }
 #[derive(Debug)]
 enum WorkDone {
-    Resolve { context: PathBuf, name: String, resolved: Resolved },
-    Include { module: PathBuf, info: ModuleInfo },
+    Resolve {
+        context: PathBuf,
+        name: String,
+        resolved: Resolved,
+    },
+    Include {
+        module: PathBuf,
+        info: ModuleInfo,
+    },
 }
 #[derive(Debug)]
 enum ModuleState {
@@ -540,7 +587,12 @@ impl ModuleState {
     }
 }
 
-pub fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map_output: &SourceMapOutput) -> Result<FnvHashMap<PathBuf, Module>, CliError> {
+pub fn bundle(
+    entry_point: &Path,
+    input_options: InputOptions,
+    output: &str,
+    map_output: &SourceMapOutput,
+) -> Result<FnvHashMap<PathBuf, Module>, CliError> {
     let mut pending = 0;
     let thread_count = num_cpus::get();
     let (tx, rx) = mpsc::channel();
@@ -556,14 +608,18 @@ pub fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map
 
     let mut modules = FnvHashMap::<PathBuf, ModuleState>::default();
 
-    worker_init.add_work(Work::Include { module: entry_point.to_owned() });
+    worker_init.add_work(Work::Include {
+        module: entry_point.to_owned(),
+    });
     pending += 1;
     modules.insert(entry_point.to_owned(), ModuleState::Loading);
 
-    let children: Vec<_> = (0..thread_count).map(|_| {
-        let init = worker_init.clone();
-        thread::spawn(move || Worker::new(init).run())
-    }).collect();
+    let children: Vec<_> = (0..thread_count)
+        .map(|_| {
+            let init = worker_init.clone();
+            thread::spawn(move || Worker::new(init).run())
+        })
+        .collect();
     // let children: Vec<_> = (0..thread_count).map(|n| {
     //     let init = worker_init.clone();
     //     thread::Builder::new().name(format!("worker #{}", n + 1)).spawn(move || Worker::new(init).run()).unwrap()
@@ -574,7 +630,7 @@ pub fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map
         let work_done = match work_done {
             Err(error) => {
                 worker_init.quit.store(true, Ordering::Relaxed);
-                return Err(error)
+                return Err(error);
             }
             Ok(work_done) => {
                 pending -= 1;
@@ -582,7 +638,11 @@ pub fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map
             }
         };
         match work_done {
-            WorkDone::Resolve { context, name, resolved } => {
+            WorkDone::Resolve {
+                context,
+                name,
+                resolved,
+            } => {
                 match *modules.get_mut(&context).unwrap() {
                     ModuleState::Loading => unreachable!(),
                     ModuleState::Loaded(Module { ref mut deps, .. }) => {
@@ -602,10 +662,13 @@ pub fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map
                 }
             }
             WorkDone::Include { module, info } => {
-                let old = modules.insert(module.clone(), ModuleState::Loaded(Module {
-                    source: info.source,
-                    deps: FnvHashMap::default(),
-                }));
+                let old = modules.insert(
+                    module.clone(),
+                    ModuleState::Loaded(Module {
+                        source: info.source,
+                        deps: FnvHashMap::default(),
+                    }),
+                );
                 debug_assert_matches!(old, Some(ModuleState::Loading));
                 for dep in info.deps {
                     worker_init.add_work(Work::Resolve {
@@ -617,7 +680,7 @@ pub fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map
             }
         }
         if pending == 0 {
-            break
+            break;
         }
     }
 
@@ -627,9 +690,10 @@ pub fn bundle(entry_point: &Path, input_options: InputOptions, output: &str, map
     }
 
     let writer = Writer {
-        modules: modules.into_iter()
-        .map(|(k, ms)| (k, ms.unwrap()))
-        .collect(),
+        modules: modules
+            .into_iter()
+            .map(|(k, ms)| (k, ms.unwrap()))
+            .collect(),
         entry_point,
         map_output,
     };
@@ -676,9 +740,9 @@ fn run() -> Result<(), CliError> {
     let mut input = None;
     let mut output = None;
     let mut map = None;
-    let mut for_browser = false;
-    let mut es6_syntax = false;
-    let mut es6_syntax_everywhere = false;
+    let mut for_browser = true;
+    let mut es6_syntax = true;
+    let mut es6_syntax_everywhere = true;
     let mut map_inline = false;
     let mut no_map = false;
     let mut watch = false;
@@ -694,9 +758,9 @@ fn run() -> Result<(), CliError> {
                 } else if output.is_none() {
                     output = Some(arg)
                 } else {
-                    return Err(CliError::UnexpectedArg(arg))
+                    return Err(CliError::UnexpectedArg(arg));
                 }
-                continue
+                continue;
             }
             opts::Arg::Opt(opt) => opt,
         };
@@ -707,7 +771,7 @@ fn run() -> Result<(), CliError> {
             "-W" | "--quiet-watch" => {
                 watch = true;
                 quiet_watch = true;
-            },
+            }
             "-I" | "--map-inline" => map_inline = true,
             "-M" | "--no-map" => no_map = true,
             "-b" | "--for-browser" => for_browser = true,
@@ -720,7 +784,9 @@ fn run() -> Result<(), CliError> {
                 lazy_static! {
                     static ref COMMA: Regex = Regex::new(r#"\s*,\s*"#).unwrap();
                 }
-                let mods = iter.next_arg().ok_or_else(|| CliError::MissingOptionValue(opt))?;
+                let mods = iter
+                    .next_arg()
+                    .ok_or_else(|| CliError::MissingOptionValue(opt))?;
                 for m in COMMA.split(&mods) {
                     external.insert(m.to_string());
                 }
@@ -732,30 +798,39 @@ fn run() -> Result<(), CliError> {
             }
             "-m" | "--map" => {
                 if map.is_some() {
-                    return Err(CliError::DuplicateOption(opt))
+                    return Err(CliError::DuplicateOption(opt));
                 }
-                map = Some(iter.next_arg().ok_or_else(|| CliError::MissingOptionValue(opt))?)
+                map = Some(
+                    iter.next_arg()
+                        .ok_or_else(|| CliError::MissingOptionValue(opt))?,
+                )
             }
             "-i" | "--input" => {
                 if input.is_some() {
-                    return Err(CliError::DuplicateOption(opt))
+                    return Err(CliError::DuplicateOption(opt));
                 }
-                input = Some(iter.next_arg().ok_or_else(|| CliError::MissingOptionValue(opt))?)
+                input = Some(
+                    iter.next_arg()
+                        .ok_or_else(|| CliError::MissingOptionValue(opt))?,
+                )
             }
             "-o" | "--output" => {
                 if output.is_some() {
-                    return Err(CliError::DuplicateOption(opt))
+                    return Err(CliError::DuplicateOption(opt));
                 }
-                output = Some(iter.next_arg().ok_or_else(|| CliError::MissingOptionValue(opt))?)
+                output = Some(
+                    iter.next_arg()
+                        .ok_or_else(|| CliError::MissingOptionValue(opt))?,
+                )
             }
-            _ => {
-                return Err(CliError::UnknownOption(opt))
-            }
+            _ => return Err(CliError::UnknownOption(opt)),
         }
     }
 
     if map_inline as u8 + no_map as u8 + map.is_some() as u8 > 1 {
-        return Err(CliError::BadUsage("--map-inline, --map <file>, and --no-map are mutually exclusive"))
+        return Err(CliError::BadUsage(
+            "--map-inline, --map <file>, and --no-map are mutually exclusive",
+        ));
     }
 
     let input = input.ok_or(CliError::MissingFileName)?;
@@ -768,9 +843,7 @@ fn run() -> Result<(), CliError> {
         SourceMapOutput::Suppressed
     } else {
         match map {
-            Some(path) => {
-                SourceMapOutput::File(PathBuf::from(path), Path::new(&output))
-            }
+            Some(path) => SourceMapOutput::File(PathBuf::from(path), Path::new(&output)),
             None => {
                 if output == "-" {
                     SourceMapOutput::Suppressed
@@ -805,7 +878,7 @@ fn run() -> Result<(), CliError> {
             Ok(mods) => mods,
             Err(e) => {
                 eprintln!();
-                return Err(e)
+                return Err(e);
             }
         };
         let elapsed = entry_inst.elapsed();
@@ -819,7 +892,12 @@ fn run() -> Result<(), CliError> {
             watcher.watch(path, notify::RecursiveMode::NonRecursive)?;
         }
 
-        eprintln!("{bs} ready {output} in {ms} ms", output = output, ms = ms, bs = "\u{8}".repeat(progress_line.len()));
+        eprintln!(
+            "{bs} ready {output} in {ms} ms",
+            output = output,
+            ms = ms,
+            bs = "\u{8}".repeat(progress_line.len())
+        );
 
         loop {
             let first_event = rx.recv().expect("notify::watcher disconnected");
@@ -870,9 +948,13 @@ const EXE_NAME: &str = "px";
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn write_usage(f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "\
+    write!(
+        f,
+        "\
 Usage: {0} [options] <input> [output]
-       {0} [-h | --help | -v | --version]", EXE_NAME)
+       {0} [-h | --help | -v | --version]",
+        EXE_NAME
+    )
 }
 
 fn write_version(f: &mut fmt::Formatter) -> fmt::Result {
@@ -884,7 +966,9 @@ fn write_help(f: &mut fmt::Formatter) -> fmt::Result {
     write!(f, "\n\n")?;
     write_usage(f)?;
     write!(f, "\n\n")?;
-    write!(f, "\
+    write!(
+        f,
+        "\
 Options:
     -i, --input <input>
         Use <input> as the main module.
@@ -948,7 +1032,8 @@ Options:
 
     -v, --version
         Print version information.
-")
+"
+    )
 }
 
 #[derive(Debug)]
@@ -964,12 +1049,25 @@ pub enum CliError {
     UnexpectedArg(String),
     BadUsage(&'static str),
 
-    RequireRoot { context: Option<PathBuf>, path: PathBuf },
-    EmptyModuleName { context: PathBuf },
-    ModuleNotFound { context: PathBuf, name: String },
-    MainNotFound { name: String },
+    RequireRoot {
+        context: Option<PathBuf>,
+        path: PathBuf,
+    },
+    EmptyModuleName {
+        context: PathBuf,
+    },
+    ModuleNotFound {
+        context: PathBuf,
+        name: String,
+    },
+    MainNotFound {
+        name: String,
+    },
 
-    InvalidUtf8 { context: PathBuf, err: string::FromUtf8Error },
+    InvalidUtf8 {
+        context: PathBuf,
+        err: string::FromUtf8Error,
+    },
 
     Io(io::Error),
     Json(serde_json::Error),
@@ -1018,93 +1116,54 @@ impl From<Box<Any + Send + 'static>> for CliError {
 impl fmt::Display for CliError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            CliError::Help => {
-                write_help(f)
-            }
-            CliError::Version => {
-                write_version(f)
-            }
-            CliError::MissingFileName => {
-                write_usage(f)
-            }
-            CliError::ExternalMain => {
-                write!(f, "main module is --external")
-            }
+            CliError::Help => write_help(f),
+            CliError::Version => write_version(f),
+            CliError::MissingFileName => write_usage(f),
+            CliError::ExternalMain => write!(f, "main module is --external"),
             CliError::IgnoredMain => {
                 write!(f, "main module is ignored by a browser field substitution")
             }
             CliError::DuplicateOption(ref opt) => {
                 write!(f, "option {} specified more than once", opt)
             }
-            CliError::MissingOptionValue(ref opt) => {
-                write!(f, "missing value for option {}", opt)
-            }
-            CliError::UnknownOption(ref opt) => {
-                write!(f, "unknown option {}", opt)
-            }
-            CliError::UnexpectedArg(ref arg) => {
-                write!(f, "unexpected argument {}", arg)
-            }
-            CliError::BadUsage(ref arg) => {
-                write!(f, "{}", arg)
-            }
+            CliError::MissingOptionValue(ref opt) => write!(f, "missing value for option {}", opt),
+            CliError::UnknownOption(ref opt) => write!(f, "unknown option {}", opt),
+            CliError::UnexpectedArg(ref arg) => write!(f, "unexpected argument {}", arg),
+            CliError::BadUsage(ref arg) => write!(f, "{}", arg),
 
-            CliError::RequireRoot { ref context, ref path } => {
-                match *context {
-                    None => {
-                        write!(f,
-                            "main module is root path {}",
-                            path.display(),
-                        )
-                    }
-                    Some(ref context) => {
-                        write!(f,
-                            "require of root path {} in {}",
-                            path.display(),
-                            context.display(),
-                        )
-                    }
-                }
-            }
+            CliError::RequireRoot {
+                ref context,
+                ref path,
+            } => match *context {
+                None => write!(f, "main module is root path {}", path.display(),),
+                Some(ref context) => write!(
+                    f,
+                    "require of root path {} in {}",
+                    path.display(),
+                    context.display(),
+                ),
+            },
             CliError::EmptyModuleName { ref context } => {
                 write!(f, "require('') in {}", context.display())
             }
-            CliError::ModuleNotFound { ref context, ref name } => {
-                write!(f,
-                    "module '{}' not found in {}",
-                    name,
-                    context.display(),
-                )
-            }
-            CliError::MainNotFound { ref name } => {
-                write!(f, "main module '{}' not found", name)
-            }
+            CliError::ModuleNotFound {
+                ref context,
+                ref name,
+            } => write!(f, "module '{}' not found in {}", name, context.display(),),
+            CliError::MainNotFound { ref name } => write!(f, "main module '{}' not found", name),
 
-            CliError::InvalidUtf8 { ref context, ref err } => {
-                write!(f, "in {}: {}", context.display(), err)
-            }
+            CliError::InvalidUtf8 {
+                ref context,
+                ref err,
+            } => write!(f, "in {}: {}", context.display(), err),
 
-            CliError::Io(ref inner) => {
-                write!(f, "{}", inner)
-            }
-            CliError::Json(ref inner) => {
-                write!(f, "{}", inner)
-            }
-            CliError::Notify(ref inner) => {
-                write!(f, "{}", inner)
-            }
-            CliError::Es6(ref inner) => {
-                write!(f, "{}", inner)
-            }
-            CliError::Lex(ref inner) => {
-                write!(f, "{}", inner)
-            }
-            CliError::ParseStrLit(ref inner) => {
-                write!(f, "{}", inner)
-            }
-            CliError::Box(ref inner) => {
-                write!(f, "{:?}", inner)
-            }
+            CliError::Io(ref inner) => write!(f, "{}", inner),
+            CliError::Json(ref inner) => write!(f, "{}", inner),
+            CliError::Notify(ref inner) => write!(f, "{}", inner),
+            CliError::Es6(ref inner) => write!(f, "{}", inner),
+            CliError::Lex(ref inner) => write!(f, "{}", inner),
+            CliError::ParseStrLit(ref inner) => write!(f, "{}", inner),
+            CliError::Box(ref inner) => write!(f, "{:?}", inner),
         }
     }
 }
@@ -1114,9 +1173,7 @@ fn main() {
         Ok(_) => 0,
         Err(kind) => {
             match kind {
-                CliError::Help |
-                CliError::Version |
-                CliError::MissingFileName => {
+                CliError::Help | CliError::Version | CliError::MissingFileName => {
                     println!("{}", kind);
                 }
                 _ => {
@@ -1160,11 +1217,11 @@ impl PathBufExt for PathBuf {
         mem::swap(self, &mut tmp);
         self.append_resolving(tmp.as_path());
     }
-    fn clear(&mut self) {
+    fn empty(&mut self) {
         self.as_mut_vec().clear();
     }
     fn replace_with<P: AsRef<Path> + ?Sized>(&mut self, that: &P) {
-        self.clear();
+        self.empty();
         self.push(that);
     }
 
@@ -1180,7 +1237,10 @@ trait PathExt {
 impl PathExt for Path {
     #[inline]
     fn is_explicitly_relative(&self) -> bool {
-        matches!(self.components().next(), Some(Component::CurDir) | Some(Component::ParentDir))
+        matches!(
+            self.components().next(),
+            Some(Component::CurDir) | Some(Component::ParentDir)
+        )
     }
     fn relative_from<P: AsRef<Path> + ?Sized>(&self, base: &P) -> Option<PathBuf> {
         let base = base.as_ref();
@@ -1242,22 +1302,21 @@ impl Worker {
         while let Some(work) = self.get_work() {
             let work_done = match work {
                 Work::Resolve { context, name } => {
-                    self.resolver.resolve(&context, &name)
-                    .map(|resolved| WorkDone::Resolve {
-                        context,
-                        name,
-                        resolved,
-                    })
+                    self.resolver
+                        .resolve(&context, &name)
+                        .map(|resolved| WorkDone::Resolve {
+                            context,
+                            name,
+                            resolved,
+                        })
                 }
-                Work::Include { module } => {
-                    self.include(&module)
-                    .map(|info| WorkDone::Include {
-                        module,
-                        info,
-                    })
-                }
+                Work::Include { module } => self
+                    .include(&module)
+                    .map(|info| WorkDone::Include { module, info }),
             };
-            if self.tx.send(work_done).is_err() { return }
+            if self.tx.send(work_done).is_err() {
+                return;
+            }
         }
     }
 
@@ -1269,10 +1328,12 @@ impl Worker {
             buf_reader.read_to_end(&mut bytes)?;
             match String::from_utf8(bytes) {
                 Ok(s) => s,
-                Err(err) => return Err(CliError::InvalidUtf8 {
-                    context: module.to_owned(),
-                    err,
-                }),
+                Err(err) => {
+                    return Err(CliError::InvalidUtf8 {
+                        context: module.to_owned(),
+                        err,
+                    })
+                }
             }
         };
         let mut new_source = None;
@@ -1293,12 +1354,10 @@ impl Worker {
                 prefix = module.source_prefix;
                 suffix = module.source_suffix;
                 new_source = Some(module.source);
-
             } else if matches!(ext, Some(s) if s == "json") {
                 deps = FnvHashSet::default();
                 prefix = "module.exports =".to_owned();
                 suffix = String::new();
-
             } else if self.resolver.input_options.es6_syntax_everywhere {
                 let module = es6::module_to_cjs(&mut lexer, true)?;
                 // println!("{:#?}", module);
@@ -1306,7 +1365,6 @@ impl Worker {
                 prefix = module.source_prefix;
                 suffix = module.source_suffix;
                 new_source = Some(module.source);
-
             } else {
                 deps = cjs_parse_deps(&mut lexer)?;
                 prefix = String::new();
@@ -1314,12 +1372,10 @@ impl Worker {
             }
 
             if let Some(error) = lexer.take_error() {
-                return Err(From::from(error))
+                return Err(From::from(error));
             }
 
-            deps.into_iter()
-                .map(|s| s.into_owned())
-                .collect()
+            deps.into_iter().map(|s| s.into_owned()).collect()
         };
 
         // Convert hashbang #! to //
@@ -1343,7 +1399,7 @@ impl Worker {
                     body: new_source,
                     suffix,
                     original: Some(source),
-                }
+                },
             },
             deps,
         })
@@ -1355,7 +1411,7 @@ impl Worker {
                 Some(work) => return Some(work),
                 None => {
                     if self.quit.load(Ordering::Relaxed) {
-                        return None
+                        return None;
                     } else {
                         thread::yield_now();
                         // thread::sleep(time::Duration::from_millis(1));
@@ -1376,63 +1432,58 @@ impl Resolver {
 
     #[inline]
     fn needs_dir(name: &str, path: &Path) -> bool {
-        name.ends_with('/') || matches!(path.components().last(), Some(Component::CurDir) | Some(Component::ParentDir))
+        name.ends_with('/')
+            || matches!(
+                path.components().last(),
+                Some(Component::CurDir) | Some(Component::ParentDir)
+            )
     }
 
     fn resolve_main(&self, mut dir: PathBuf, name: &str) -> Result<Resolved, CliError> {
         let path = Path::new(name);
         dir.append_resolving(path);
         let needs_dir = Self::needs_dir(name, path);
-        self.resolve_path_or_module(None, dir, needs_dir, false)?.ok_or_else(|| {
-            CliError::MainNotFound {
+        self.resolve_path_or_module(None, dir, needs_dir, false)?
+            .ok_or_else(|| CliError::MainNotFound {
                 name: name.to_owned(),
-            }
-        })
+            })
     }
 
     fn resolve(&self, context: &Path, name: &str) -> Result<Resolved, CliError> {
         if name.is_empty() {
             return Err(CliError::EmptyModuleName {
                 context: context.to_owned(),
-            })
+            });
         }
 
         let path = Path::new(name);
         let needs_dir = Self::needs_dir(name, path);
         if path.is_absolute() {
-            Ok(
-                self.resolve_path_or_module(Some(context), path.to_owned(), needs_dir, false)?.ok_or_else(|| {
-                    CliError::ModuleNotFound {
-                        context: context.to_owned(),
-                        name: name.to_owned(),
-                    }
-                })?,
-            )
+            Ok(self
+                .resolve_path_or_module(Some(context), path.to_owned(), needs_dir, false)?
+                .ok_or_else(|| CliError::ModuleNotFound {
+                    context: context.to_owned(),
+                    name: name.to_owned(),
+                })?)
         } else if path.is_explicitly_relative() {
             let mut dir = context.to_owned();
             let did_pop = dir.pop(); // to directory
             debug_assert!(did_pop);
             dir.append_resolving(path);
-            Ok(
-                self.resolve_path_or_module(Some(context), dir, needs_dir, false)?.ok_or_else(|| {
-                    CliError::ModuleNotFound {
-                        context: context.to_owned(),
-                        name: name.to_owned(),
-                    }
-                })?,
-            )
+            Ok(self
+                .resolve_path_or_module(Some(context), dir, needs_dir, false)?
+                .ok_or_else(|| CliError::ModuleNotFound {
+                    context: context.to_owned(),
+                    name: name.to_owned(),
+                })?)
         } else {
             match self.module_substitution(context, name)? {
-                ModuleSubstitution::Ignore => {
-                    return Ok(Resolved::Ignore)
-                }
-                ModuleSubstitution::External => {
-                    return Ok(Resolved::External)
-                }
+                ModuleSubstitution::Ignore => return Ok(Resolved::Ignore),
+                ModuleSubstitution::External => return Ok(Resolved::External),
                 ModuleSubstitution::Replace(new_name) => {
                     // TODO: detect cycles
                     // eprintln!("module replace {} => {}", name, &new_name);
-                    return self.resolve(context, &new_name)
+                    return self.resolve(context, &new_name);
                 }
                 ModuleSubstitution::Normal => {}
             }
@@ -1447,8 +1498,10 @@ impl Resolver {
                     _ => {}
                 }
                 let new_path = dir.join(&suffix);
-                if let Some(result) = self.resolve_path_or_module(Some(context), new_path, needs_dir, false)? {
-                    return Ok(result)
+                if let Some(result) =
+                    self.resolve_path_or_module(Some(context), new_path, needs_dir, false)?
+                {
+                    return Ok(result);
                 }
             }
 
@@ -1459,10 +1512,14 @@ impl Resolver {
         }
     }
 
-    fn module_substitution(&self, context: &Path, name: &str) -> Result<ModuleSubstitution, CliError> {
+    fn module_substitution(
+        &self,
+        context: &Path,
+        name: &str,
+    ) -> Result<ModuleSubstitution, CliError> {
         let module_name = name.split('/').next().unwrap();
         if self.input_options.external.contains(module_name) {
-            return Ok(ModuleSubstitution::External)
+            return Ok(ModuleSubstitution::External);
         }
         if self.input_options.for_browser {
             if let Some(p) = context.parent() {
@@ -1474,7 +1531,7 @@ impl Resolver {
                         Some(&BrowserSubstitution::Replace(ref to)) => {
                             let mut new_name = to.to_string_lossy().into_owned();
                             new_name.push_str(&name[module_name.len()..]);
-                            return Ok(ModuleSubstitution::Replace(new_name))
+                            return Ok(ModuleSubstitution::Replace(new_name));
                         }
                         None => {}
                     }
@@ -1484,7 +1541,13 @@ impl Resolver {
         Ok(ModuleSubstitution::Normal)
     }
 
-    fn resolve_path_or_module(&self, context: Option<&Path>, mut path: PathBuf, needs_dir: bool, package: bool) -> Result<Option<Resolved>, CliError> {
+    fn resolve_path_or_module(
+        &self,
+        context: Option<&Path>,
+        mut path: PathBuf,
+        needs_dir: bool,
+        package: bool,
+    ) -> Result<Option<Resolved>, CliError> {
         let package_info = if self.input_options.for_browser {
             self.cache.nearest_package_info(path.clone())?
         } else {
@@ -1498,19 +1561,17 @@ impl Resolver {
                     match Self::check_path($package_info.as_ref().map(|x| x.as_ref()), &$path) {
                         PathSubstitution::Normal => {
                             // eprintln!("resolve {}", $path.display());
-                            return Ok(Some(Resolved::Normal($path)))
+                            return Ok(Some(Resolved::Normal($path)));
                         }
-                        PathSubstitution::Ignore => {
-                            return Ok(Some(Resolved::Ignore))
-                        }
+                        PathSubstitution::Ignore => return Ok(Some(Resolved::Ignore)),
                         PathSubstitution::Replace(p) => {
                             // eprintln!("path replace {} => {}", $path.display(), p.display());
-                            return Ok(Some(Resolved::Normal(p)))
+                            return Ok(Some(Resolved::Normal(p)));
                         }
                         PathSubstitution::Missing => {}
                     }
                 } else if path.is_file() {
-                    return Ok(Some(Resolved::Normal(path)))
+                    return Ok(Some(Resolved::Normal(path)));
                 }
             };
         }
@@ -1519,10 +1580,13 @@ impl Resolver {
             // <path>
             check_path!(package_info, path);
 
-            let file_name = path.file_name().ok_or_else(|| CliError::RequireRoot {
-                context: context.map(|p| p.to_owned()),
-                path: path.clone(),
-            })?.to_owned();
+            let file_name = path
+                .file_name()
+                .ok_or_else(|| CliError::RequireRoot {
+                    context: context.map(|p| p.to_owned()),
+                    path: path.clone(),
+                })?
+                .to_owned();
 
             let mut new_file_name = file_name.to_owned();
 
@@ -1578,9 +1642,7 @@ impl Resolver {
     fn check_path(package_info: Option<&PackageInfo>, path: &Path) -> PathSubstitution {
         if let Some(package_info) = package_info {
             match package_info.browser_substitutions.0.get(path) {
-                Some(BrowserSubstitution::Ignore) => {
-                    return PathSubstitution::Ignore
-                }
+                Some(BrowserSubstitution::Ignore) => return PathSubstitution::Ignore,
                 Some(BrowserSubstitution::Replace(ref path)) => {
                     return PathSubstitution::Replace(path.clone())
                 }
@@ -1600,32 +1662,38 @@ impl PackageCache {
         loop {
             if !matches!(dir.file_name(), Some(s) if s == "node_modules") {
                 if let Some(info) = self.package_info(&mut dir)? {
-                    return Ok(Some(info))
+                    return Ok(Some(info));
                 }
             }
-            if !dir.pop() { return Ok(None) }
+            if !dir.pop() {
+                return Ok(None);
+            }
         }
     }
     fn package_info(&self, dir: &mut PathBuf) -> Result<Option<Rc<PackageInfo>>, CliError> {
         let mut pkgs = self.pkgs.borrow_mut();
-        Ok(pkgs.entry(dir.clone()).or_insert_with(|| {
-            dir.push("package.json");
-            if let Ok(file) = fs::File::open(&dir) {
-                let buf_reader = io::BufReader::new(file);
-                if let Ok(mut info) = serde_json::from_reader::<_, PackageInfo>(buf_reader) {
-                    dir.pop();
-                    info.set_base(&dir);
-                    // eprintln!("info {} {:?}", dir.display(), info);
-                    Some(Rc::new(info))
+        Ok(pkgs
+            .entry(dir.clone())
+            .or_insert_with(|| {
+                dir.push("package.json");
+                if let Ok(file) = fs::File::open(&dir) {
+                    let buf_reader = io::BufReader::new(file);
+                    if let Ok(mut info) = serde_json::from_reader::<_, PackageInfo>(buf_reader) {
+                        dir.pop();
+                        info.set_base(&dir);
+                        // eprintln!("info {} {:?}", dir.display(), info);
+                        Some(Rc::new(info))
+                    } else {
+                        dir.pop();
+                        None
+                    }
                 } else {
                     dir.pop();
                     None
                 }
-            } else {
-                dir.pop();
-                None
-            }
-        }).as_ref().cloned())
+            })
+            .as_ref()
+            .cloned())
     }
 }
 
@@ -1638,8 +1706,9 @@ impl PackageInfo {
     fn set_base(&mut self, base: &Path) {
         self.main.prepend_resolving(base);
         let substs = mem::replace(&mut self.browser_substitutions, Default::default());
-        self.browser_substitutions.0.extend(substs.0.into_iter()
-            .map(|(mut from, mut to)| {
+        self.browser_substitutions
+            .0
+            .extend(substs.0.into_iter().map(|(mut from, mut to)| {
                 if from.is_explicitly_relative() {
                     from.prepend_resolving(base);
                 }
@@ -1741,7 +1810,6 @@ macro_rules! visit_unconditionally {
     };
 }
 
-
 #[derive(Debug, PartialEq, Eq, Clone)]
 enum BrowserField {
     Empty,
@@ -1751,9 +1819,7 @@ enum BrowserField {
 impl BrowserField {
     fn to_map(self, main: &Path) -> BrowserSubstitutionMap {
         match self {
-            BrowserField::Empty => {
-                Default::default()
-            }
+            BrowserField::Empty => Default::default(),
             BrowserField::Main(mut to) => {
                 if !to.is_explicitly_relative() {
                     to.prepend_resolving(Path::new("."));
@@ -1773,7 +1839,9 @@ impl Default for BrowserField {
 }
 impl<'de> Deserialize<'de> for BrowserField {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where D: Deserializer<'de> {
+    where
+        D: Deserializer<'de>,
+    {
         struct BrowserFieldVisitor;
 
         impl<'de> Visitor<'de> for BrowserFieldVisitor {
@@ -1783,9 +1851,13 @@ impl<'de> Deserialize<'de> for BrowserField {
                 write!(f, "anything at all")
             }
             fn visit_map<A: de::MapAccess<'de>>(self, access: A) -> Result<Self::Value, A::Error> {
-                Ok(BrowserField::Complex(Deserialize::deserialize(de::value::MapAccessDeserializer::new(access))?))
+                Ok(BrowserField::Complex(Deserialize::deserialize(
+                    de::value::MapAccessDeserializer::new(access),
+                )?))
             }
-            fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> { Ok(BrowserField::Main(PathBuf::from(v))) }
+            fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
+                Ok(BrowserField::Main(PathBuf::from(v)))
+            }
 
             visit_unconditionally!('de BrowserField::Empty, bool i64 i128 u64 u128 f64 bytes none some unit newtype_struct seq enum);
         }
@@ -1795,11 +1867,16 @@ impl<'de> Deserialize<'de> for BrowserField {
 }
 
 fn from_str_or_none<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
-where for<'a> T: From<&'a str> + Deserialize<'de>, D: Deserializer<'de> {
+where
+    for<'a> T: From<&'a str> + Deserialize<'de>,
+    D: Deserializer<'de>,
+{
     struct FromStrOrNone<T>(PhantomData<T>);
 
     impl<'de, T> Visitor<'de> for FromStrOrNone<T>
-    where for<'a> T: From<&'a str> + Deserialize<'de> {
+    where
+        for<'a> T: From<&'a str> + Deserialize<'de>,
+    {
         type Value = Option<T>;
 
         fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -1825,12 +1902,16 @@ enum BrowserSubstitution<T> {
 struct BrowserSubstitutionMap(FnvHashMap<PathBuf, BrowserSubstitution<PathBuf>>);
 
 impl<'de, T> Deserialize<'de> for BrowserSubstitution<T>
-where for<'a> T: From<&'a str> {
+where
+    for<'a> T: From<&'a str>,
+{
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         struct SubstitutionVisitor<T>(PhantomData<T>);
 
         impl<'de, T> Visitor<'de> for SubstitutionVisitor<T>
-        where for<'a> T: From<&'a str> {
+        where
+            for<'a> T: From<&'a str>,
+        {
             type Value = BrowserSubstitution<T>;
 
             fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
