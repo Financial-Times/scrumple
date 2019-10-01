@@ -416,7 +416,7 @@ impl<'a, 'b> Writer<'a, 'b> {
         result.push_str("file_");
         for &b in bytes {
             match b {
-                b'_' | b'a'...b'z' | b'A'...b'Z' | b'0'...b'9' => {
+                b'_' | b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' => {
                     result.push(b as char);
                 }
                 _ => {
