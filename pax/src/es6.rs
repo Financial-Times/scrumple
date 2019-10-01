@@ -1,7 +1,7 @@
+use fnv::FnvHashSet;
+use std::borrow::Cow;
 use std::fmt;
 use std::fmt::Write;
-use std::borrow::Cow;
-use fnv::FnvHashSet;
 
 use esparse;
 use esparse::lex::{self, Tt};
@@ -12,7 +12,7 @@ macro_rules! expected {
         return Err(Error {
             kind: ErrorKind::Expected($msg),
             span: $lex.recover_span($lex.here().span).with_owned(),
-        })
+        });
     }};
 }
 
@@ -33,10 +33,7 @@ pub struct ExportSpec<'s> {
 impl<'s> ExportSpec<'s> {
     #[inline]
     pub fn new(bind: &'s str, name: &'s str) -> Self {
-        ExportSpec {
-            name,
-            bind,
-        }
+        ExportSpec { name, bind }
     }
 
     #[inline]
@@ -87,10 +84,7 @@ pub struct ImportSpec<'s> {
 impl<'s> ImportSpec<'s> {
     #[inline]
     pub fn new(name: &'s str, bind: &'s str) -> Self {
-        ImportSpec {
-            name,
-            bind,
-        }
+        ImportSpec { name, bind }
     }
 
     #[inline]
@@ -134,20 +128,14 @@ impl From<skip::Error> for Error {
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f,
-            "{} at {}",
-            self.kind,
-            self.span,
-        )
+        write!(f, "{} at {}", self.kind, self.span,)
     }
 }
 
 impl fmt::Display for ErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            ErrorKind::Expected(s) => {
-                write!(f, "expected {}", s)
-            }
+            ErrorKind::Expected(s) => write!(f, "expected {}", s),
             ErrorKind::ParseStrLitError(ref error) => {
                 write!(f, "invalid string literal: {}", error)
             }
@@ -155,7 +143,10 @@ impl fmt::Display for ErrorKind {
     }
 }
 
-pub fn module_to_cjs<'f, 's>(lex: &mut lex::Lexer<'f, 's>, allow_require: bool) -> Result<CjsModule<'s>> {
+pub fn module_to_cjs<'f, 's>(
+    lex: &mut lex::Lexer<'f, 's>,
+    allow_require: bool,
+) -> Result<CjsModule<'s>> {
     let mut source = String::new();
     let mut deps = FnvHashSet::default();
     let mut imports = Vec::new();
@@ -213,13 +204,23 @@ pub fn module_to_cjs<'f, 's>(lex: &mut lex::Lexer<'f, 's>, allow_require: bool) 
     let mut source_prefix = String::new();
 
     if is_module {
-        write!(source_prefix, "Object.defineProperty(exports, '__esModule', {{value: true}})\n").unwrap();
+        write!(
+            source_prefix,
+            "Object.defineProperty(exports, '__esModule', {{value: true}})\n"
+        )
+        .unwrap();
+    }
     }
 
     if !imports.is_empty() {
-        write!(source_prefix, "with (function() {{").unwrap();
+        write!(source_prefix, "var imports = (function() {{").unwrap();
         for (i, import) in imports.iter().enumerate() {
-            write!(source_prefix, "\n  const __module{} = require._esModule({})", i, import.module_source).unwrap();
+            write!(
+                source_prefix,
+                "\n  const __module{} = require._esModule({})",
+                i, import.module_source
+            )
+            .unwrap();
         }
         write!(source_prefix, "\n  return Object.freeze(Object.create(null, {{\n    [Symbol.toStringTag]: {{value: 'ModuleImports'}},").unwrap();
         for (i, import) in imports.iter().enumerate() {
@@ -227,9 +228,9 @@ pub fn module_to_cjs<'f, 's>(lex: &mut lex::Lexer<'f, 's>, allow_require: bool) 
                 write!(
                     source_prefix,
                     "\n    {}: {{get() {{return __module{}.default}}, enumerable: true}},",
-                    bind,
-                    i,
-                ).unwrap();
+                    bind, i,
+                )
+                .unwrap();
             }
             match import.binds {
                 Bindings::None => {}
@@ -237,19 +238,18 @@ pub fn module_to_cjs<'f, 's>(lex: &mut lex::Lexer<'f, 's>, allow_require: bool) 
                     write!(
                         source_prefix,
                         "\n    {}: {{value: __module{}, enumerable: true}},",
-                        bind,
-                        i,
-                    ).unwrap();
+                        bind, i,
+                    )
+                    .unwrap();
                 }
                 Bindings::Named(ref specs) => {
                     for spec in specs {
                         write!(
                             source_prefix,
                             "\n    {}: {{get() {{return __module{}.{}}}, enumerable: true}},",
-                            spec.bind,
-                            i,
-                            spec.name,
-                        ).unwrap();
+                            spec.bind, i, spec.name,
+                        )
+                        .unwrap();
                     }
                 }
             }
@@ -275,16 +275,17 @@ pub fn module_to_cjs<'f, 's>(lex: &mut lex::Lexer<'f, 's>, allow_require: bool) 
                         inner,
                         "\n  default: {{get() {{return {}}}, enumerable: true}},",
                         bind,
-                    ).unwrap();
+                    )
+                    .unwrap();
                 }
                 Export::Named(ref specs) => {
                     for spec in specs {
                         write!(
                             inner,
                             "\n  {}: {{get() {{return {}}}, enumerable: true}},",
-                            spec.name,
-                            spec.bind,
-                        ).unwrap();
+                            spec.name, spec.bind,
+                        )
+                        .unwrap();
                     }
                 }
                 Export::AllFrom(name_source, _) => {
@@ -299,16 +300,20 @@ pub fn module_to_cjs<'f, 's>(lex: &mut lex::Lexer<'f, 's>, allow_require: bool) 
                         write!(source_prefix, "~function() {{\n").unwrap();
                         had_binds = true;
                     }
-                    write!(source_prefix, "const __reexport{} = require._esModule({})\n", i, name_source).unwrap();
+                    write!(
+                        source_prefix,
+                        "const __reexport{} = require._esModule({})\n",
+                        i, name_source
+                    )
+                    .unwrap();
 
                     for spec in specs {
                         write!(
                             inner,
                             "\n  {}: {{get() {{return __reexport{}.{}}}, enumerable: true}},",
-                            spec.name,
-                            i,
-                            spec.bind,
-                        ).unwrap();
+                            spec.name, i, spec.bind,
+                        )
+                        .unwrap();
                     }
                 }
             }
@@ -326,8 +331,7 @@ pub fn module_to_cjs<'f, 's>(lex: &mut lex::Lexer<'f, 's>, allow_require: bool) 
         match export {
             Export::Default(_) => {}
             Export::Named(_) => {}
-            Export::AllFrom(_, name) |
-            Export::NamedFrom(_, _, name) => {
+            Export::AllFrom(_, name) | Export::NamedFrom(_, _, name) => {
                 deps.insert(name);
             }
         }
@@ -582,9 +586,17 @@ fn parse_export<'f, 's>(lex: &mut lex::Lexer<'f, 's>, source: &mut String) -> Re
 }
 
 #[inline(always)]
-fn parse_import<'f, 's>(lex: &mut lex::Lexer<'f, 's>, source: &mut String) -> Result<ParsedImport<'s>> {
+fn parse_import<'f, 's>(
+    lex: &mut lex::Lexer<'f, 's>,
+    source: &mut String,
+) -> Result<ParsedImport<'s>> {
     #[inline(always)]
-    fn parse_binds<'f, 's>(lex: &mut lex::Lexer<'f, 's>, source: &mut String, binds: &mut Bindings<'s>, expected: &'static str) -> Result<()> {
+    fn parse_binds<'f, 's>(
+        lex: &mut lex::Lexer<'f, 's>,
+        source: &mut String,
+        binds: &mut Bindings<'s>,
+        expected: &'static str,
+    ) -> Result<()> {
         eat!(lex => tok { source.push_str(tok.ws_before) },
             Tt::Star => eat!(lex => tok { source.push_str(tok.ws_before) },
                 Tt::Id("as") => eat!(lex => tok { source.push_str(tok.ws_before) },
@@ -799,10 +811,7 @@ mod test {
         );
         assert_export_form!(
             "export const j = class A extends B(c, d) {}, k = 1 _next",
-            Export::Named(vec![
-                ExportSpec::same("j"),
-                ExportSpec::same("k"),
-            ]),
+            Export::Named(vec![ExportSpec::same("j"), ExportSpec::same("k"),]),
             " const j = class A extends B(c, d) {}, k = 1",
         );
     }
@@ -994,9 +1003,7 @@ mod test {
                 module_source: "'a_module'",
                 module: Cow::Borrowed("a_module"),
                 default_bind: None,
-                binds: Bindings::Named(vec![
-                    ImportSpec::same("name"),
-                ]),
+                binds: Bindings::Named(vec![ImportSpec::same("name"),]),
             }),
             "     ",
         );
@@ -1006,9 +1013,7 @@ mod test {
                 module_source: "'a_module'",
                 module: Cow::Borrowed("a_module"),
                 default_bind: None,
-                binds: Bindings::Named(vec![
-                    ImportSpec::same("name"),
-                ]),
+                binds: Bindings::Named(vec![ImportSpec::same("name"),]),
             }),
             "      ",
         );
@@ -1018,10 +1023,9 @@ mod test {
                 module_source: "'a_module'",
                 module: Cow::Borrowed("a_module"),
                 default_bind: None,
-                binds: Bindings::Named(vec![
-                    ImportSpec::same("name"),
-                    ImportSpec::same("another"),
-                ]),
+                binds: Bindings::Named(
+                    vec![ImportSpec::same("name"), ImportSpec::same("another"),]
+                ),
             }),
             "       ",
         );
@@ -1031,9 +1035,7 @@ mod test {
                 module_source: "'a_module'",
                 module: Cow::Borrowed("a_module"),
                 default_bind: None,
-                binds: Bindings::Named(vec![
-                    ImportSpec::new("name", "thing"),
-                ]),
+                binds: Bindings::Named(vec![ImportSpec::new("name", "thing"),]),
             }),
             "       ",
         );
@@ -1043,9 +1045,7 @@ mod test {
                 module_source: "'a_module'",
                 module: Cow::Borrowed("a_module"),
                 default_bind: None,
-                binds: Bindings::Named(vec![
-                    ImportSpec::new("name", "thing"),
-                ]),
+                binds: Bindings::Named(vec![ImportSpec::new("name", "thing"),]),
             }),
             "        ",
         );
