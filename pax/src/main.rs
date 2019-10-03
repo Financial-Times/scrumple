@@ -1925,9 +1925,9 @@ where
         {
             while let Ok(item) = seq.next_element() {
                 if let Some(item) = item {
-                    let item: &str = item;
+                    let item: String = item;
                     if item.ends_with(".js") {
-                        return Ok(Some(T::from(item)));
+                        return Ok(Some(T::from(&item)));
                     }
                 }
             }
