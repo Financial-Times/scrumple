@@ -1,7 +1,6 @@
 //! A fast JavaScript parser. Currently only a [lexical analyzer](lex/index.html) and a [skipper](skip/index.html).
 
 #![cfg_attr(all(test, feature = "bench"), feature(test))]
-
 #![warn(missing_docs)]
 #![doc(html_root_url = "https://docs.rs/esparse/0.1.0")]
 
@@ -16,8 +15,8 @@ extern crate cfg_if;
 
 #[macro_use]
 pub mod lex;
-pub mod skip;
 pub mod ast;
+pub mod skip;
 
 pub use ast::{Loc, Span};
 
@@ -51,5 +50,4 @@ pub fn parse_expr(_input: &str, _options: ParseOptions) -> ! {
 }
 
 #[cfg(test)]
-mod test {
-}
+mod test {}

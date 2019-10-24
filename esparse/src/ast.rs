@@ -19,11 +19,7 @@ impl Loc {
     /// Creates a new `Loc` with the given positions.
     #[inline]
     pub fn new(pos: usize, row: usize, col: usize) -> Self {
-        Loc {
-            pos,
-            row,
-            col,
-        }
+        Loc { pos, row, col }
     }
 
     /// Creates a new `Loc` pointing to the first byte of the source code (`pos`, `row`, and `col` all zero).
@@ -90,12 +86,20 @@ impl<F, L: Default> SpanT<F, L> {
 impl<'f, L: Clone> Span<'f, L> {
     /// Converts a `Span` into a [`SpanRc`](type.SpanRc.html) by cloning the borrowed file name.
     pub fn with_rc(&self) -> SpanRc<L> {
-        SpanT::new(Rc::new(self.file_name.to_owned()), self.start.clone(), self.end.clone())
+        SpanT::new(
+            Rc::new(self.file_name.to_owned()),
+            self.start.clone(),
+            self.end.clone(),
+        )
     }
 
     /// Converts a `Span` into a [`SpanT`](struct.SpanT.html) which owns its data by cloning the borrowed file name.
     pub fn with_owned(&self) -> SpanT<String, L> {
-        SpanT::new(self.file_name.to_owned(), self.start.clone(), self.end.clone())
+        SpanT::new(
+            self.file_name.to_owned(),
+            self.start.clone(),
+            self.end.clone(),
+        )
     }
 }
 

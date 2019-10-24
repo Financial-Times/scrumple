@@ -14,12 +14,12 @@
 //! }
 //! ```
 
-use std::{char, mem, fmt, error};
-use std::borrow::Cow;
 use memchr;
+use std::borrow::Cow;
+use std::{char, error, fmt, mem};
 use unicode_xid::UnicodeXID;
 
-use ast::{Span, SpanT, Loc};
+use ast::{Loc, Span, SpanT};
 
 /// A token (an atomic parsing unit).
 ///
@@ -104,22 +104,59 @@ pub enum Tt<'s> {
     TemplateEnd(&'s str),
 
     // Punctuator ::
-    Lbrace, Lparen, Rparen, Lbracket, Rbracket,
-    Dot, DotDotDot, Semi, Comma,
-    Lt, Gt, LtEq, GtEq,
-    EqEq, BangEq, EqEqEq, BangEqEq,
-    Plus, Minus, Star, Percent, StarStar,
-    PlusPlus, MinusMinus,
-    LtLt, GtGt, GtGtGt,
-    And, Or, Circumflex,
-    Bang, Tilde,
-    AndAnd, OrOr,
-    Question, Colon,
-    Eq, PlusEq, MinusEq, StarEq, PercentEq, StarStarEq, LtLtEq, GtGtEq, GtGtGtEq, AndEq, OrEq, CircumflexEq,
+    Lbrace,
+    Lparen,
+    Rparen,
+    Lbracket,
+    Rbracket,
+    Dot,
+    DotDotDot,
+    Semi,
+    Comma,
+    Lt,
+    Gt,
+    LtEq,
+    GtEq,
+    EqEq,
+    BangEq,
+    EqEqEq,
+    BangEqEq,
+    Plus,
+    Minus,
+    Star,
+    Percent,
+    StarStar,
+    PlusPlus,
+    MinusMinus,
+    LtLt,
+    GtGt,
+    GtGtGt,
+    And,
+    Or,
+    Circumflex,
+    Bang,
+    Tilde,
+    AndAnd,
+    OrOr,
+    Question,
+    Colon,
+    Eq,
+    PlusEq,
+    MinusEq,
+    StarEq,
+    PercentEq,
+    StarStarEq,
+    LtLtEq,
+    GtGtEq,
+    GtGtGtEq,
+    AndEq,
+    OrEq,
+    CircumflexEq,
     EqGt,
 
     // DivPunctuator ::
-    Slash, SlashEq,
+    Slash,
+    SlashEq,
 
     // RightBracePunctuator ::
     Rbrace,
@@ -134,24 +171,43 @@ pub enum Tt<'s> {
     // Keyword ::
     Await,
     Break,
-    Case, Catch, Class, Const, Continue,
-    Debugger, Default, Delete, Do,
-    Else, Export, Extends,
-    Finally, For, Function,
-    If, Import, In, Instanceof,
+    Case,
+    Catch,
+    Class,
+    Const,
+    Continue,
+    Debugger,
+    Default,
+    Delete,
+    Do,
+    Else,
+    Export,
+    Extends,
+    Finally,
+    For,
+    Function,
+    If,
+    Import,
+    In,
+    Instanceof,
     New,
     Return,
-    Super, Switch,
-    This, Throw, Try, Typeof,
-    Var, Void,
-    While, With,
+    Super,
+    Switch,
+    This,
+    Throw,
+    Try,
+    Typeof,
+    Var,
+    Void,
+    While,
+    With,
     Yield,
 
     // // FutureReservedWord ::
     // Enum,
 
     // TODO strict mode future reserved words
-
     /// The end-of-file token.
     ///
     /// This token is emitted endlessly after the lexical analyzer has reached the end of the source code.
@@ -167,18 +223,18 @@ impl<'s> Tt<'s> {
     /// The source code slice that this token covers.
     pub fn as_str(&self) -> &'s str {
         match *self {
-            Tt::Id(s) |
-            Tt::StrLitSgl(s) |
-            Tt::StrLitDbl(s) |
-            Tt::NumLitBin(s) |
-            Tt::NumLitOct(s) |
-            Tt::NumLitDec(s) |
-            Tt::NumLitHex(s) |
-            Tt::RegExpLit(s, _) |
-            Tt::TemplateNoSub(s) |
-            Tt::TemplateStart(s) |
-            Tt::TemplateMiddle(s) |
-            Tt::TemplateEnd(s) => s,
+            Tt::Id(s)
+            | Tt::StrLitSgl(s)
+            | Tt::StrLitDbl(s)
+            | Tt::NumLitBin(s)
+            | Tt::NumLitOct(s)
+            | Tt::NumLitDec(s)
+            | Tt::NumLitHex(s)
+            | Tt::RegExpLit(s, _)
+            | Tt::TemplateNoSub(s)
+            | Tt::TemplateStart(s)
+            | Tt::TemplateMiddle(s)
+            | Tt::TemplateEnd(s) => s,
 
             Tt::Lbrace => "{",
             Tt::Lparen => "(",
@@ -303,7 +359,7 @@ impl<'s> fmt::Display for Tt<'s> {
 /// ```
 pub fn str_lit_value(source: &str) -> Result<Cow<str>, ParseStrLitError> {
     let mut result = String::new();
-    let range = &source[1..source.len()-1]; // strip quotation marks
+    let range = &source[1..source.len() - 1]; // strip quotation marks
     let bytes = range.as_bytes();
 
     let len = range.len();
@@ -314,7 +370,7 @@ pub fn str_lit_value(source: &str) -> Result<Cow<str>, ParseStrLitError> {
         result.push_str(&range[last_pos..bs_pos]);
         let esc_pos = bs_pos + 1;
         if esc_pos >= len {
-            return Err(ParseStrLitError::ExpectedEscape)
+            return Err(ParseStrLitError::ExpectedEscape);
         }
         last_pos = esc_pos + 1;
         match bytes[esc_pos] {
@@ -329,51 +385,47 @@ pub fn str_lit_value(source: &str) -> Result<Cow<str>, ParseStrLitError> {
             b'x' => {
                 let end_pos = last_pos + 2;
                 if end_pos > len {
-                    return Err(ParseStrLitError::ExpectedHex2)
+                    return Err(ParseStrLitError::ExpectedHex2);
                 }
 
                 let hex = &range[last_pos..end_pos];
-                let code_point = u8::from_str_radix(hex, 16)
-                .map_err(|_| ParseStrLitError::NotHex2)?;
+                let code_point =
+                    u8::from_str_radix(hex, 16).map_err(|_| ParseStrLitError::NotHex2)?;
                 result.push(code_point as char);
 
                 last_pos = end_pos;
             }
-            b'u' => {
-                match bytes.get(last_pos) {
-                    Some(&b'{') => {
-                        let l_pos = last_pos + 1;
-                        let r_pos = memchr::memchr(b'}', &bytes[l_pos..])
+            b'u' => match bytes.get(last_pos) {
+                Some(&b'{') => {
+                    let l_pos = last_pos + 1;
+                    let r_pos = memchr::memchr(b'}', &bytes[l_pos..])
                         .ok_or(ParseStrLitError::ExpectedRbrace)?;
 
-                        let hex = &range[l_pos..r_pos];
-                        let code_point = u32::from_str_radix(hex, 16)
-                        .map_err(|_| ParseStrLitError::NotHex)?;
+                    let hex = &range[l_pos..r_pos];
+                    let code_point =
+                        u32::from_str_radix(hex, 16).map_err(|_| ParseStrLitError::NotHex)?;
 
-                        let ch = char::from_u32(code_point)
-                        .ok_or(ParseStrLitError::NotChar)?;
-                        result.push(ch);
+                    let ch = char::from_u32(code_point).ok_or(ParseStrLitError::NotChar)?;
+                    result.push(ch);
 
-                        last_pos = r_pos + 1;
-                    }
-                    _ => {
-                        let end_pos = last_pos + 4;
-                        if end_pos > len {
-                            return Err(ParseStrLitError::ExpectedHex4)
-                        }
-
-                        let hex = &range[last_pos..end_pos];
-                        let code_point = u32::from_str_radix(hex, 16)
-                        .map_err(|_| ParseStrLitError::NotHex4)?;
-
-                        let ch = char::from_u32(code_point)
-                        .ok_or(ParseStrLitError::NotChar)?;
-                        result.push(ch);
-
-                        last_pos = end_pos;
-                    }
+                    last_pos = r_pos + 1;
                 }
-            }
+                _ => {
+                    let end_pos = last_pos + 4;
+                    if end_pos > len {
+                        return Err(ParseStrLitError::ExpectedHex4);
+                    }
+
+                    let hex = &range[last_pos..end_pos];
+                    let code_point =
+                        u32::from_str_radix(hex, 16).map_err(|_| ParseStrLitError::NotHex4)?;
+
+                    let ch = char::from_u32(code_point).ok_or(ParseStrLitError::NotChar)?;
+                    result.push(ch);
+
+                    last_pos = end_pos;
+                }
+            },
 
             // ignore <cr> and <cr><lf>
             b'\r' => match bytes.get(last_pos) {
@@ -433,13 +485,17 @@ impl error::Error for ParseStrLitError {
     fn description(&self) -> &str {
         match *self {
             ParseStrLitError::ExpectedEscape => "expected escape sequence, but got end of string",
-            ParseStrLitError::ExpectedHex2 |
-            ParseStrLitError::NotHex2 => "expected two hexadecimal characters after '\\x'",
+            ParseStrLitError::ExpectedHex2 | ParseStrLitError::NotHex2 => {
+                "expected two hexadecimal characters after '\\x'"
+            }
             ParseStrLitError::ExpectedRbrace => "expected `}` after `\\u{`",
             ParseStrLitError::NotHex => "expected hexadecimal number in `\\u{…}` escape",
-            ParseStrLitError::NotChar => "hexadecimal number in `\\u{…}` escape is not a Unicode Scalar Value",
-            ParseStrLitError::ExpectedHex4 |
-            ParseStrLitError::NotHex4 => "expected four hexadecimal characters or '{…}' after '\\u'",
+            ParseStrLitError::NotChar => {
+                "hexadecimal number in `\\u{…}` escape is not a Unicode Scalar Value"
+            }
+            ParseStrLitError::ExpectedHex4 | ParseStrLitError::NotHex4 => {
+                "expected four hexadecimal characters or '{…}' after '\\u'"
+            }
         }
     }
 }
@@ -486,27 +542,15 @@ impl fmt::Display for ErrorKind {
             // ErrorKind::Expected(s) => {
             //     write!(f, "expected {}", s)
             // }
-            ErrorKind::Unexpected(c) => {
-                write!(f, "unexpected {}", c)
-            }
-            ErrorKind::ExpectedExponent => {
-                write!(f, "expected exponent in numeric literal")
-            }
-            ErrorKind::UnterminatedTemplateLiteral => {
-                write!(f, "unterminated template literal")
-            }
-            ErrorKind::UnterminatedStringLiteral => {
-                write!(f, "unterminated string literal")
-            }
+            ErrorKind::Unexpected(c) => write!(f, "unexpected {}", c),
+            ErrorKind::ExpectedExponent => write!(f, "expected exponent in numeric literal"),
+            ErrorKind::UnterminatedTemplateLiteral => write!(f, "unterminated template literal"),
+            ErrorKind::UnterminatedStringLiteral => write!(f, "unterminated string literal"),
             ErrorKind::UnterminatedRegExpLiteral => {
                 write!(f, "unterminated regular expression literal")
             }
-            ErrorKind::UnterminatedMultilineComment => {
-                write!(f, "unterminated multiline comment")
-            }
-            ErrorKind::UnmatchedRbrace => {
-                write!(f, "unmatched '}}'")
-            }
+            ErrorKind::UnterminatedMultilineComment => write!(f, "unterminated multiline comment"),
+            ErrorKind::UnmatchedRbrace => write!(f, "unmatched '}}'"),
         }
     }
 }
@@ -819,7 +863,7 @@ impl<'f, 's> Lexer<'f, 's> {
                     span,
                     ws_before: "",
                     nl_before: false,
-                }
+                };
             }
         };
 
@@ -832,7 +876,7 @@ impl<'f, 's> Lexer<'f, 's> {
                     span: Span::empty(self.file_name, start),
                     ws_before,
                     nl_before,
-                }
+                };
             }
         };
 
@@ -849,23 +893,20 @@ impl<'f, 's> Lexer<'f, 's> {
                     span,
                     ws_before,
                     nl_before,
-                }
+                };
             }};
         }
 
         let tt = match here {
             '{' => {
-                self.stack.push(mem::replace(&mut self.frame, LexFrame::Brace));
+                self.stack
+                    .push(mem::replace(&mut self.frame, LexFrame::Brace));
                 Tt::Lbrace
             }
             '(' => Tt::Lparen,
-            ')' => {
-                Tt::Rparen
-            },
+            ')' => Tt::Rparen,
             '[' => Tt::Lbracket,
-            ']' => {
-                Tt::Rbracket
-            },
+            ']' => Tt::Rbracket,
             ';' => Tt::Semi,
             ',' => Tt::Comma,
 
@@ -965,19 +1006,17 @@ impl<'f, 's> Lexer<'f, 's> {
                                         None => unreachable!(),
                                     };
                                     result = Tt::TemplateEnd(self.stream.str_from(start));
-                                    break
+                                    break;
                                 }
                                 Some('$') => {
                                     // TODO subopt
                                     if self.stream.eat('{') {
                                         result = Tt::TemplateMiddle(self.stream.str_from(start));
-                                        break
+                                        break;
                                     }
                                 }
                                 Some(_) => {}
-                                None => {
-                                    mark_error!(ErrorKind::UnterminatedTemplateLiteral)
-                                }
+                                None => mark_error!(ErrorKind::UnterminatedTemplateLiteral),
                             }
                         }
                         result
@@ -989,9 +1028,7 @@ impl<'f, 's> Lexer<'f, 's> {
                         };
                         Tt::Rbrace
                     }
-                    LexFrame::Outer => {
-                        mark_error!(ErrorKind::UnmatchedRbrace)
-                    }
+                    LexFrame::Outer => mark_error!(ErrorKind::UnmatchedRbrace),
                 }
             }
             '`' => {
@@ -1009,20 +1046,19 @@ impl<'f, 's> Lexer<'f, 's> {
                         }
                         Some('`') => {
                             result = Tt::TemplateNoSub(self.stream.str_from(start));
-                            break
+                            break;
                         }
                         Some('$') => {
                             // TODO subopt
                             if self.stream.eat('{') {
-                                self.stack.push(mem::replace(&mut self.frame, LexFrame::Template));
+                                self.stack
+                                    .push(mem::replace(&mut self.frame, LexFrame::Template));
                                 result = Tt::TemplateStart(self.stream.str_from(start));
-                                break
+                                break;
                             }
                         }
                         Some(_) => {}
-                        None => {
-                            mark_error!(ErrorKind::UnterminatedTemplateLiteral)
-                        }
+                        None => mark_error!(ErrorKind::UnterminatedTemplateLiteral),
                     }
                 }
                 result
@@ -1087,20 +1123,20 @@ impl<'f, 's> Lexer<'f, 's> {
 
             '/' => {
                 match self.here.tt {
-                    Tt::Rparen |
-                    Tt::Rbracket |
-                    Tt::TemplateEnd(_) |
-                    Tt::TemplateNoSub(_) |
-                    Tt::StrLitSgl(_) |
-                    Tt::StrLitDbl(_) |
-                    Tt::RegExpLit(_, _) |
-                    Tt::NumLitBin(_) |
-                    Tt::NumLitOct(_) |
-                    Tt::NumLitDec(_) |
-                    Tt::NumLitHex(_) |
-                    Tt::Id(_) |
-                    Tt::This |
-                    Tt::Super => eat_s!(self.stream,
+                    Tt::Rparen
+                    | Tt::Rbracket
+                    | Tt::TemplateEnd(_)
+                    | Tt::TemplateNoSub(_)
+                    | Tt::StrLitSgl(_)
+                    | Tt::StrLitDbl(_)
+                    | Tt::RegExpLit(_, _)
+                    | Tt::NumLitBin(_)
+                    | Tt::NumLitOct(_)
+                    | Tt::NumLitDec(_)
+                    | Tt::NumLitHex(_)
+                    | Tt::Id(_)
+                    | Tt::This
+                    | Tt::Super => eat_s!(self.stream,
                         '=' => Tt::SlashEq,
                         _ => Tt::Slash,
                     ),
@@ -1168,39 +1204,33 @@ impl<'f, 's> Lexer<'f, 's> {
             }
 
             // TODO error if following char is IdentStart or DecimalDigit
-            '.' => {
-                match self.stream.here() {
-                    Some('.') => match self.stream.next() {
-                        Some('.') => {
-                            self.stream.advance();
-                            self.stream.advance();
-                            Tt::DotDotDot
-                        }
-                        Some(_) | None => {
-                            Tt::Dot
-                        }
-                    },
-                    Some('0'...'9') => {
+            '.' => match self.stream.here() {
+                Some('.') => match self.stream.next() {
+                    Some('.') => {
                         self.stream.advance();
-                        self.stream.skip_dec_digits();
-                        eat_s!(self.stream,
-                            'e' | 'E' => eat_s!(self.stream,
-                                '-' | '+' | '0'...'9' => {
-                                    self.stream.skip_dec_digits();
-                                },
-                                _ => {
-                                    mark_error!(ErrorKind::ExpectedExponent)
-                                },
-                            ),
-                            _ => {},
-                        );
-                        Tt::NumLitDec(self.stream.str_from(start))
+                        self.stream.advance();
+                        Tt::DotDotDot
                     }
-                    Some(_) | None => {
-                        Tt::Dot
-                    }
+                    Some(_) | None => Tt::Dot,
+                },
+                Some('0'...'9') => {
+                    self.stream.advance();
+                    self.stream.skip_dec_digits();
+                    eat_s!(self.stream,
+                        'e' | 'E' => eat_s!(self.stream,
+                            '-' | '+' | '0'...'9' => {
+                                self.stream.skip_dec_digits();
+                            },
+                            _ => {
+                                mark_error!(ErrorKind::ExpectedExponent)
+                            },
+                        ),
+                        _ => {},
+                    );
+                    Tt::NumLitDec(self.stream.str_from(start))
                 }
-            }
+                Some(_) | None => Tt::Dot,
+            },
             '0' => eat_s!(self.stream,
                 'b' | 'B' => {
                     self.stream.skip_bin_digits();
@@ -1274,7 +1304,9 @@ impl<'f, 's> Lexer<'f, 's> {
 
             _ => {
                 // TODO '\\'
-                if matches!(here, 'a' ... 'z' | 'A' ... 'Z' | '0' ... '9' | '$' | '_') || UnicodeXID::is_xid_start(here) {
+                if matches!(here, 'a' ... 'z' | 'A' ... 'Z' | '0' ... '9' | '$' | '_')
+                    || UnicodeXID::is_xid_start(here)
+                {
                     self.stream.skip_id_continue_chars();
                     let id = self.stream.str_from(start);
                     match id {
@@ -1320,7 +1352,7 @@ impl<'f, 's> Lexer<'f, 's> {
                 } else {
                     mark_error!(ErrorKind::Unexpected(here))
                 }
-            },
+            }
         };
         Tok {
             tt,
@@ -1410,31 +1442,31 @@ pub trait Stream<'s> {
     #[inline]
     fn eat2(&mut self, c: char, d: char) -> bool {
         match self.here() {
-            Some(cc) if c == cc => {
-                match self.next() {
-                    Some(dd) if d == dd => {
-                        self.advance();
-                        self.advance();
-                        true
-                    }
-                    _ => false,
+            Some(cc) if c == cc => match self.next() {
+                Some(dd) if d == dd => {
+                    self.advance();
+                    self.advance();
+                    true
                 }
-            }
+                _ => false,
+            },
             _ => false,
         }
     }
 
     /// Advances to the next character until the stream ends or `f` returns `false` for the current character.
     #[inline]
-    fn skip_while<F>(&mut self, mut f: F) where
-    F: FnMut(char) -> bool {
+    fn skip_while<F>(&mut self, mut f: F)
+    where
+        F: FnMut(char) -> bool,
+    {
         loop {
             match self.here() {
                 Some(c) => {
                     if f(c) {
                         self.advance();
                     } else {
-                        break
+                        break;
                     }
                 }
                 None => break,
@@ -1630,15 +1662,18 @@ pub trait Stream<'s> {
                 Some('!') => {
                     self.advance();
                     self.advance();
-                    self.skip_while(|c| !matches!(c,
-                        | '\u{000A}' // LINE FEED (LF)          <LF>
+                    self.skip_while(|c| {
+                        !matches!(
+                            c,
+                            | '\u{000A}' // LINE FEED (LF)          <LF>
                         | '\u{000D}' // CARRIAGE RETURN (CR)    <CR>
                         | '\u{2028}' // LINE SEPARATOR          <LS>
                         | '\u{2029}' // PARAGRAPH SEPARATOR     <PS>
-                    ));
+                        )
+                    });
                 }
                 _ => {}
-            }
+            },
             _ => {}
         }
         self.str_from(start_pos)
@@ -1686,9 +1721,7 @@ impl<'s> Stream<'s> for PosStream<'s> {
                 self.next_width = 0;
                 None
             } else {
-                let (next, width) = unsafe {
-                    char_at_unchecked(self.input, self.next_pos)
-                };
+                let (next, width) = unsafe { char_at_unchecked(self.input, self.next_pos) };
                 self.next_width = width;
                 Some(next)
             }
@@ -1697,16 +1730,24 @@ impl<'s> Stream<'s> for PosStream<'s> {
     }
 
     #[inline]
-    fn here(&self) -> Option<char> { self.here }
+    fn here(&self) -> Option<char> {
+        self.here
+    }
 
     #[inline]
-    fn next(&self) -> Option<char> { self.next }
+    fn next(&self) -> Option<char> {
+        self.next
+    }
 
     #[inline]
-    fn pos(&self) -> usize { self.pos }
+    fn pos(&self) -> usize {
+        self.pos
+    }
 
     #[inline]
-    fn input(&self) -> &'s str { self.input }
+    fn input(&self) -> &'s str {
+        self.input
+    }
 }
 
 /// Generic source code stream with row/column information.
@@ -1727,7 +1768,9 @@ pub struct LocStream<'s> {
 impl<'s> LocStream<'s> {
     /// The location of the current character.
     #[inline]
-    fn loc(&self) -> Loc { self.loc }
+    fn loc(&self) -> Loc {
+        self.loc
+    }
 }
 
 impl<'s> Stream<'s> for LocStream<'s> {
@@ -1747,19 +1790,27 @@ impl<'s> Stream<'s> for LocStream<'s> {
 
     /// The bytewise position of the current character.
     #[inline]
-    fn pos(&self) -> usize { self.loc.pos }
+    fn pos(&self) -> usize {
+        self.loc.pos
+    }
 
     /// The current character, or `None` if the stream has reached the end of its input.
     #[inline]
-    fn here(&self) -> Option<char> { self.here }
+    fn here(&self) -> Option<char> {
+        self.here
+    }
 
     /// The next character, or `None` if the stream has reached the end of its input.
     #[inline]
-    fn next(&self) -> Option<char> { self.next }
+    fn next(&self) -> Option<char> {
+        self.next
+    }
 
     /// The entire input source code.
     #[inline]
-    fn input(&self) -> &'s str { self.input }
+    fn input(&self) -> &'s str {
+        self.input
+    }
 
     /// Advances the stream by one character, returning the character advanced past or `None` if the stream was already at the end of its input.
     fn advance(&mut self) -> Option<char> {
@@ -1784,9 +1835,7 @@ impl<'s> Stream<'s> for LocStream<'s> {
                 self.next_width = 0;
                 None
             } else {
-                let (next, width) = unsafe {
-                    char_at_unchecked(self.input, self.next_pos)
-                };
+                let (next, width) = unsafe { char_at_unchecked(self.input, self.next_pos) };
                 self.next_width = width;
                 Some(next)
             }
@@ -1810,11 +1859,20 @@ unsafe fn char_at_unchecked(s: &str, n: usize) -> (char, usize) {
     let (width, code) = if b0 & 0x80 == 0 {
         (1, b0 as u32)
     } else if b0 & 0xe0 == 0xc0 {
-        (2, ((b0 & 0x1f) as u32) << 6 | (b[n+1] & 0x3f) as u32)
+        (2, ((b0 & 0x1f) as u32) << 6 | (b[n + 1] & 0x3f) as u32)
     } else if b0 & 0xf0 == 0xe0 {
-        (3, ((b0 & 0x0f) as u32) << 12 | ((b[n+1] & 0x3f) as u32) << 6 | (b[n+2] & 0x3f) as u32)
+        (
+            3,
+            ((b0 & 0x0f) as u32) << 12 | ((b[n + 1] & 0x3f) as u32) << 6 | (b[n + 2] & 0x3f) as u32,
+        )
     } else if b0 & 0xf1 == 0xf0 {
-        (4, ((b0 & 0x07) as u32) << 18 | ((b[n+1] & 0x3f) as u32) << 12 | ((b[n+2] & 0x3f) as u32) << 6 | (b[n+3] & 0x3f) as u32)
+        (
+            4,
+            ((b0 & 0x07) as u32) << 18
+                | ((b[n + 1] & 0x3f) as u32) << 12
+                | ((b[n + 2] & 0x3f) as u32) << 6
+                | (b[n + 3] & 0x3f) as u32,
+        )
     } else {
         panic!("invalid utf-8 sequence")
     };
@@ -1861,9 +1919,9 @@ mod test {
     extern crate test;
 
     use super::*;
+    use std::borrow::Cow;
     use std::fs;
     use std::io::prelude::*;
-    use std::borrow::Cow;
 
     fn lex_test(source: &str, expected: &[Tt]) {
         let mut lexer = Lexer::new_unnamed(source);
@@ -1881,7 +1939,8 @@ mod test {
 
     #[test]
     fn test_keywords() {
-        lex_test(r#"
+        lex_test(
+            r#"
             null
 
             true
@@ -1901,27 +1960,47 @@ mod test {
             var void
             while with
             yield
-        "#, &[
-            Tt::Null,
-
-            Tt::True,
-            Tt::False,
-
-            Tt::Await,
-            Tt::Break,
-            Tt::Case, Tt::Catch, Tt::Class, Tt::Const, Tt::Continue,
-            Tt::Debugger, Tt::Default, Tt::Delete, Tt::Do,
-            Tt::Else, Tt::Export, Tt::Extends,
-            Tt::Finally, Tt::For, Tt::Function,
-            Tt::If, Tt::Import, Tt::In, Tt::Instanceof,
-            Tt::New,
-            Tt::Return,
-            Tt::Super, Tt::Switch,
-            Tt::This, Tt::Throw, Tt::Try, Tt::Typeof,
-            Tt::Var, Tt::Void,
-            Tt::While, Tt::With,
-            Tt::Yield,
-        ])
+        "#,
+            &[
+                Tt::Null,
+                Tt::True,
+                Tt::False,
+                Tt::Await,
+                Tt::Break,
+                Tt::Case,
+                Tt::Catch,
+                Tt::Class,
+                Tt::Const,
+                Tt::Continue,
+                Tt::Debugger,
+                Tt::Default,
+                Tt::Delete,
+                Tt::Do,
+                Tt::Else,
+                Tt::Export,
+                Tt::Extends,
+                Tt::Finally,
+                Tt::For,
+                Tt::Function,
+                Tt::If,
+                Tt::Import,
+                Tt::In,
+                Tt::Instanceof,
+                Tt::New,
+                Tt::Return,
+                Tt::Super,
+                Tt::Switch,
+                Tt::This,
+                Tt::Throw,
+                Tt::Try,
+                Tt::Typeof,
+                Tt::Var,
+                Tt::Void,
+                Tt::While,
+                Tt::With,
+                Tt::Yield,
+            ],
+        )
     }
 
     #[test]
@@ -1946,7 +2025,8 @@ mod test {
 
     #[test]
     fn test_punctuators() {
-        lex_test(r#"
+        lex_test(
+            r#"
             {()[]
             ....;,
             <><=>=
@@ -1963,85 +2043,135 @@ mod test {
             }
             a/b
             c/=d
-        "#, &[
-            Tt::Lbrace, Tt::Lparen, Tt::Rparen, Tt::Lbracket, Tt::Rbracket,
-            Tt::DotDotDot, Tt::Dot, Tt::Semi, Tt::Comma,
-            Tt::Lt, Tt::Gt, Tt::LtEq, Tt::GtEq,
-            Tt::EqEq, Tt::BangEq, Tt::EqEqEq, Tt::BangEqEq,
-            Tt::Plus, Tt::Minus, Tt::Star, Tt::Percent, Tt::StarStar,
-            Tt::PlusPlus, Tt::MinusMinus,
-            Tt::LtLt, Tt::GtGtGt, Tt::GtGt,
-            Tt::And, Tt::Or, Tt::Circumflex,
-            Tt::Bang, Tt::Tilde,
-            Tt::AndAnd, Tt::OrOr,
-            Tt::Question, Tt::Colon,
-            Tt::Eq, Tt::PlusEq, Tt::MinusEq, Tt::StarEq, Tt::PercentEq, Tt::StarStarEq, Tt::LtLtEq, Tt::GtGtEq, Tt::GtGtGtEq, Tt::AndEq, Tt::OrEq, Tt::CircumflexEq,
-            Tt::EqGt,
-            Tt::Rbrace,
-
-            Tt::Id("a"),
-            Tt::Slash,
-            Tt::Id("b"),
-
-            Tt::Id("c"),
-            Tt::SlashEq,
-            Tt::Id("d"),
-        ]);
+        "#,
+            &[
+                Tt::Lbrace,
+                Tt::Lparen,
+                Tt::Rparen,
+                Tt::Lbracket,
+                Tt::Rbracket,
+                Tt::DotDotDot,
+                Tt::Dot,
+                Tt::Semi,
+                Tt::Comma,
+                Tt::Lt,
+                Tt::Gt,
+                Tt::LtEq,
+                Tt::GtEq,
+                Tt::EqEq,
+                Tt::BangEq,
+                Tt::EqEqEq,
+                Tt::BangEqEq,
+                Tt::Plus,
+                Tt::Minus,
+                Tt::Star,
+                Tt::Percent,
+                Tt::StarStar,
+                Tt::PlusPlus,
+                Tt::MinusMinus,
+                Tt::LtLt,
+                Tt::GtGtGt,
+                Tt::GtGt,
+                Tt::And,
+                Tt::Or,
+                Tt::Circumflex,
+                Tt::Bang,
+                Tt::Tilde,
+                Tt::AndAnd,
+                Tt::OrOr,
+                Tt::Question,
+                Tt::Colon,
+                Tt::Eq,
+                Tt::PlusEq,
+                Tt::MinusEq,
+                Tt::StarEq,
+                Tt::PercentEq,
+                Tt::StarStarEq,
+                Tt::LtLtEq,
+                Tt::GtGtEq,
+                Tt::GtGtGtEq,
+                Tt::AndEq,
+                Tt::OrEq,
+                Tt::CircumflexEq,
+                Tt::EqGt,
+                Tt::Rbrace,
+                Tt::Id("a"),
+                Tt::Slash,
+                Tt::Id("b"),
+                Tt::Id("c"),
+                Tt::SlashEq,
+                Tt::Id("d"),
+            ],
+        );
     }
 
     #[test]
     fn test_comments() {
-        lex_test(r#"
+        lex_test(
+            r#"
             /* multiline
             comment */
             //// single line comment //\
             /**a*b***/
             test
-        "#, &[
-            Tt::Id("test"),
-        ]);
+        "#,
+            &[Tt::Id("test")],
+        );
     }
 
     #[test]
     fn test_hashbang() {
-        lex_test(r#"#!/usr/bin/env node
+        lex_test(
+            r#"#!/usr/bin/env node
 
-        test"#, &[
-            Tt::Id("test"),
-        ]);
+        test"#,
+            &[Tt::Id("test")],
+        );
     }
 
     #[test]
     fn test_hashbang_invalid() {
         lex_test_invalid(r#"!#/usr/bin/env node"#);
         lex_test_invalid(r#" #!/usr/bin/env node"#);
-        lex_test_invalid(r#"
-        #!/usr/bin/env node"#);
-        lex_test_invalid("// comment
-        #!/usr/bin/env node");
-        lex_test_invalid("/* comment
-        */#!/usr/bin/env node");
-        lex_test_invalid("(function() {
+        lex_test_invalid(
+            r#"
+        #!/usr/bin/env node"#,
+        );
+        lex_test_invalid(
+            "// comment
+        #!/usr/bin/env node",
+        );
+        lex_test_invalid(
+            "/* comment
+        */#!/usr/bin/env node",
+        );
+        lex_test_invalid(
+            "(function() {
             #!/usr/bin/env node
             'use strict'
-        }())");
+        }())",
+        );
     }
 
     #[test]
     fn test_hashbang_ws() {
         let mut lexer = Lexer::new("<input>", "#!/usr/bin/env node\ntest");
-        assert_eq!(lexer.advance(), Tok {
-            nl_before: true,
-            ws_before: "#!/usr/bin/env node\n",
-            span: Span::new("<input>", 20, 24),
-            tt: Tt::Id("test"),
-        });
+        assert_eq!(
+            lexer.advance(),
+            Tok {
+                nl_before: true,
+                ws_before: "#!/usr/bin/env node\n",
+                span: Span::new("<input>", 20, 24),
+                tt: Tt::Id("test"),
+            }
+        );
         assert_eq!(Tt::Eof, lexer.advance().tt);
     }
 
     #[test]
     fn test_dec_lits() {
-        lex_test(r#"
+        lex_test(
+            r#"
             // DecimalLiteral
             0
             123456789
@@ -2070,40 +2200,43 @@ mod test {
             123e+234
             0e-123
             123e-234
-        "#, &[
-            Tt::NumLitDec("0"),
-            Tt::NumLitDec("123456789"),
-            Tt::NumLitDec("0."),
-            Tt::NumLitDec("123."),
-            Tt::NumLitDec(".012300"),
-            Tt::NumLitDec("0.012300"),
-            Tt::NumLitDec("123.045600"),
-            Tt::NumLitDec(".123e0"),
-            Tt::NumLitDec("0.123e0"),
-            Tt::NumLitDec("123.456e0"),
-            Tt::NumLitDec(".123e01"),
-            Tt::NumLitDec("0.123e01"),
-            Tt::NumLitDec("123.456e02"),
-            Tt::NumLitDec(".123e+123"),
-            Tt::NumLitDec("0.123e+123"),
-            Tt::NumLitDec("123.456e+234"),
-            Tt::NumLitDec(".123e-123"),
-            Tt::NumLitDec("0.123e-123"),
-            Tt::NumLitDec("123.456e-234"),
-            Tt::NumLitDec("0e0"),
-            Tt::NumLitDec("123e0"),
-            Tt::NumLitDec("0e01"),
-            Tt::NumLitDec("123e02"),
-            Tt::NumLitDec("0e+123"),
-            Tt::NumLitDec("123e+234"),
-            Tt::NumLitDec("0e-123"),
-            Tt::NumLitDec("123e-234"),
-        ]);
+        "#,
+            &[
+                Tt::NumLitDec("0"),
+                Tt::NumLitDec("123456789"),
+                Tt::NumLitDec("0."),
+                Tt::NumLitDec("123."),
+                Tt::NumLitDec(".012300"),
+                Tt::NumLitDec("0.012300"),
+                Tt::NumLitDec("123.045600"),
+                Tt::NumLitDec(".123e0"),
+                Tt::NumLitDec("0.123e0"),
+                Tt::NumLitDec("123.456e0"),
+                Tt::NumLitDec(".123e01"),
+                Tt::NumLitDec("0.123e01"),
+                Tt::NumLitDec("123.456e02"),
+                Tt::NumLitDec(".123e+123"),
+                Tt::NumLitDec("0.123e+123"),
+                Tt::NumLitDec("123.456e+234"),
+                Tt::NumLitDec(".123e-123"),
+                Tt::NumLitDec("0.123e-123"),
+                Tt::NumLitDec("123.456e-234"),
+                Tt::NumLitDec("0e0"),
+                Tt::NumLitDec("123e0"),
+                Tt::NumLitDec("0e01"),
+                Tt::NumLitDec("123e02"),
+                Tt::NumLitDec("0e+123"),
+                Tt::NumLitDec("123e+234"),
+                Tt::NumLitDec("0e-123"),
+                Tt::NumLitDec("123e-234"),
+            ],
+        );
     }
 
     #[test]
     fn test_hex_lits() {
-        lex_test(r#"
+        lex_test(
+            r#"
             // HexIntegerLiteral
             0x0
             0x1
@@ -2115,23 +2248,26 @@ mod test {
             0Xa
             0XF
             0XABCDEF0123abcdef456789
-        "#, &[
-            Tt::NumLitHex("0x0"),
-            Tt::NumLitHex("0x1"),
-            Tt::NumLitHex("0xa"),
-            Tt::NumLitHex("0xF"),
-            Tt::NumLitHex("0xABCDEF0123abcdef456789"),
-            Tt::NumLitHex("0X0"),
-            Tt::NumLitHex("0X1"),
-            Tt::NumLitHex("0Xa"),
-            Tt::NumLitHex("0XF"),
-            Tt::NumLitHex("0XABCDEF0123abcdef456789"),
-        ]);
+        "#,
+            &[
+                Tt::NumLitHex("0x0"),
+                Tt::NumLitHex("0x1"),
+                Tt::NumLitHex("0xa"),
+                Tt::NumLitHex("0xF"),
+                Tt::NumLitHex("0xABCDEF0123abcdef456789"),
+                Tt::NumLitHex("0X0"),
+                Tt::NumLitHex("0X1"),
+                Tt::NumLitHex("0Xa"),
+                Tt::NumLitHex("0XF"),
+                Tt::NumLitHex("0XABCDEF0123abcdef456789"),
+            ],
+        );
     }
 
     #[test]
     fn test_oct_lits() {
-        lex_test(r#"
+        lex_test(
+            r#"
             // OctIntegerLiteral
             0o0
             0o1
@@ -2141,21 +2277,24 @@ mod test {
             0O1
             0O7
             0O01234567
-        "#, &[
-            Tt::NumLitOct("0o0"),
-            Tt::NumLitOct("0o1"),
-            Tt::NumLitOct("0o7"),
-            Tt::NumLitOct("0o01234567"),
-            Tt::NumLitOct("0O0"),
-            Tt::NumLitOct("0O1"),
-            Tt::NumLitOct("0O7"),
-            Tt::NumLitOct("0O01234567"),
-        ]);
+        "#,
+            &[
+                Tt::NumLitOct("0o0"),
+                Tt::NumLitOct("0o1"),
+                Tt::NumLitOct("0o7"),
+                Tt::NumLitOct("0o01234567"),
+                Tt::NumLitOct("0O0"),
+                Tt::NumLitOct("0O1"),
+                Tt::NumLitOct("0O7"),
+                Tt::NumLitOct("0O01234567"),
+            ],
+        );
     }
 
     #[test]
     fn test_bin_lits() {
-        lex_test(r#"
+        lex_test(
+            r#"
             // BinIntegerLiteral
             0b0
             0b1
@@ -2163,19 +2302,22 @@ mod test {
             0B0
             0B1
             0B10101000001
-        "#, &[
-            Tt::NumLitBin("0b0"),
-            Tt::NumLitBin("0b1"),
-            Tt::NumLitBin("0b10101000001"),
-            Tt::NumLitBin("0B0"),
-            Tt::NumLitBin("0B1"),
-            Tt::NumLitBin("0B10101000001"),
-        ]);
+        "#,
+            &[
+                Tt::NumLitBin("0b0"),
+                Tt::NumLitBin("0b1"),
+                Tt::NumLitBin("0b10101000001"),
+                Tt::NumLitBin("0B0"),
+                Tt::NumLitBin("0B1"),
+                Tt::NumLitBin("0B10101000001"),
+            ],
+        );
     }
 
     #[test]
     fn test_str_lits() {
-        lex_test(r#"
+        lex_test(
+            r#"
             ""
             "a"
             "'"
@@ -2184,69 +2326,98 @@ mod test {
             'a'
             '"'
             '\'\\\'\\\\'
-        "#, &[
-            Tt::StrLitDbl(r#""""#),
-            Tt::StrLitDbl(r#""a""#),
-            Tt::StrLitDbl(r#""'""#),
-            Tt::StrLitDbl(r#""\"\\\"\\\\""#),
-            Tt::StrLitSgl(r#"''"#),
-            Tt::StrLitSgl(r#"'a'"#),
-            Tt::StrLitSgl(r#"'"'"#),
-            Tt::StrLitSgl(r#"'\'\\\'\\\\'"#),
-        ]);
+        "#,
+            &[
+                Tt::StrLitDbl(r#""""#),
+                Tt::StrLitDbl(r#""a""#),
+                Tt::StrLitDbl(r#""'""#),
+                Tt::StrLitDbl(r#""\"\\\"\\\\""#),
+                Tt::StrLitSgl(r#"''"#),
+                Tt::StrLitSgl(r#"'a'"#),
+                Tt::StrLitSgl(r#"'"'"#),
+                Tt::StrLitSgl(r#"'\'\\\'\\\\'"#),
+            ],
+        );
     }
 
     #[test]
     fn test_continuations() {
-        lex_test(" \"a\\\u{000A}b\" ", &[ Tt::StrLitDbl("\"a\\\u{000A}b\"") ]);
-        lex_test(" \"a\\\u{000D}b\" ", &[ Tt::StrLitDbl("\"a\\\u{000D}b\"") ]);
-        lex_test(" \"a\\\u{000D}\u{000A}b\" ", &[ Tt::StrLitDbl("\"a\\\u{000D}\u{000A}b\"") ]);
-        lex_test(" \"a\\\u{2028}b\" ", &[ Tt::StrLitDbl("\"a\\\u{2028}b\"") ]);
-        lex_test(" \"a\\\u{2029}b\" ", &[ Tt::StrLitDbl("\"a\\\u{2029}b\"") ]);
+        lex_test(" \"a\\\u{000A}b\" ", &[Tt::StrLitDbl("\"a\\\u{000A}b\"")]);
+        lex_test(" \"a\\\u{000D}b\" ", &[Tt::StrLitDbl("\"a\\\u{000D}b\"")]);
+        lex_test(
+            " \"a\\\u{000D}\u{000A}b\" ",
+            &[Tt::StrLitDbl("\"a\\\u{000D}\u{000A}b\"")],
+        );
+        lex_test(" \"a\\\u{2028}b\" ", &[Tt::StrLitDbl("\"a\\\u{2028}b\"")]);
+        lex_test(" \"a\\\u{2029}b\" ", &[Tt::StrLitDbl("\"a\\\u{2029}b\"")]);
 
-        lex_test(" 'a\\\u{000A}b' ", &[ Tt::StrLitSgl("'a\\\u{000A}b'") ]);
-        lex_test(" 'a\\\u{000D}b' ", &[ Tt::StrLitSgl("'a\\\u{000D}b'") ]);
-        lex_test(" 'a\\\u{000D}\u{000A}b' ", &[ Tt::StrLitSgl("'a\\\u{000D}\u{000A}b'") ]);
-        lex_test(" 'a\\\u{2028}b' ", &[ Tt::StrLitSgl("'a\\\u{2028}b'") ]);
-        lex_test(" 'a\\\u{2029}b' ", &[ Tt::StrLitSgl("'a\\\u{2029}b'") ]);
+        lex_test(" 'a\\\u{000A}b' ", &[Tt::StrLitSgl("'a\\\u{000A}b'")]);
+        lex_test(" 'a\\\u{000D}b' ", &[Tt::StrLitSgl("'a\\\u{000D}b'")]);
+        lex_test(
+            " 'a\\\u{000D}\u{000A}b' ",
+            &[Tt::StrLitSgl("'a\\\u{000D}\u{000A}b'")],
+        );
+        lex_test(" 'a\\\u{2028}b' ", &[Tt::StrLitSgl("'a\\\u{2028}b'")]);
+        lex_test(" 'a\\\u{2029}b' ", &[Tt::StrLitSgl("'a\\\u{2029}b'")]);
 
-        lex_test(" `a\\\u{000A}b` ", &[ Tt::TemplateNoSub("`a\\\u{000A}b`") ]);
-        lex_test(" `a\\\u{000D}b` ", &[ Tt::TemplateNoSub("`a\\\u{000D}b`") ]);
-        lex_test(" `a\\\u{000D}\u{000A}b` ", &[ Tt::TemplateNoSub("`a\\\u{000D}\u{000A}b`") ]);
-        lex_test(" `a\\\u{2028}b` ", &[ Tt::TemplateNoSub("`a\\\u{2028}b`") ]);
-        lex_test(" `a\\\u{2029}b` ", &[ Tt::TemplateNoSub("`a\\\u{2029}b`") ]);
+        lex_test(" `a\\\u{000A}b` ", &[Tt::TemplateNoSub("`a\\\u{000A}b`")]);
+        lex_test(" `a\\\u{000D}b` ", &[Tt::TemplateNoSub("`a\\\u{000D}b`")]);
+        lex_test(
+            " `a\\\u{000D}\u{000A}b` ",
+            &[Tt::TemplateNoSub("`a\\\u{000D}\u{000A}b`")],
+        );
+        lex_test(" `a\\\u{2028}b` ", &[Tt::TemplateNoSub("`a\\\u{2028}b`")]);
+        lex_test(" `a\\\u{2029}b` ", &[Tt::TemplateNoSub("`a\\\u{2029}b`")]);
 
-        lex_test(" `a\\\u{000A}b${}c\\\u{000A}d${}e\\\u{000A}f` ", &[
-            Tt::TemplateStart("`a\\\u{000A}b${"),
-            Tt::TemplateMiddle("}c\\\u{000A}d${"),
-            Tt::TemplateEnd("}e\\\u{000A}f`"),
-        ]);
-        lex_test(" `a\\\u{000D}b${}c\\\u{000D}d${}e\\\u{000D}f` ", &[
-            Tt::TemplateStart("`a\\\u{000D}b${"),
-            Tt::TemplateMiddle("}c\\\u{000D}d${"),
-            Tt::TemplateEnd("}e\\\u{000D}f`"),
-        ]);
-        lex_test(" `a\\\u{000D}\u{000A}b${}c\\\u{000D}\u{000A}d${}e\\\u{000D}\u{000A}f` ", &[
-            Tt::TemplateStart("`a\\\u{000D}\u{000A}b${"),
-            Tt::TemplateMiddle("}c\\\u{000D}\u{000A}d${"),
-            Tt::TemplateEnd("}e\\\u{000D}\u{000A}f`"),
-        ]);
-        lex_test(" `a\\\u{2028}b${}c\\\u{2028}d${}e\\\u{2028}f` ", &[
-            Tt::TemplateStart("`a\\\u{2028}b${"),
-            Tt::TemplateMiddle("}c\\\u{2028}d${"),
-            Tt::TemplateEnd("}e\\\u{2028}f`"),
-        ]);
-        lex_test(" `a\\\u{2029}b${}c\\\u{2029}d${}e\\\u{2029}f` ", &[
-            Tt::TemplateStart("`a\\\u{2029}b${"),
-            Tt::TemplateMiddle("}c\\\u{2029}d${"),
-            Tt::TemplateEnd("}e\\\u{2029}f`"),
-        ]);
+        lex_test(
+            " `a\\\u{000A}b${}c\\\u{000A}d${}e\\\u{000A}f` ",
+            &[
+                Tt::TemplateStart("`a\\\u{000A}b${"),
+                Tt::TemplateMiddle("}c\\\u{000A}d${"),
+                Tt::TemplateEnd("}e\\\u{000A}f`"),
+            ],
+        );
+        lex_test(
+            " `a\\\u{000D}b${}c\\\u{000D}d${}e\\\u{000D}f` ",
+            &[
+                Tt::TemplateStart("`a\\\u{000D}b${"),
+                Tt::TemplateMiddle("}c\\\u{000D}d${"),
+                Tt::TemplateEnd("}e\\\u{000D}f`"),
+            ],
+        );
+        lex_test(
+            " `a\\\u{000D}\u{000A}b${}c\\\u{000D}\u{000A}d${}e\\\u{000D}\u{000A}f` ",
+            &[
+                Tt::TemplateStart("`a\\\u{000D}\u{000A}b${"),
+                Tt::TemplateMiddle("}c\\\u{000D}\u{000A}d${"),
+                Tt::TemplateEnd("}e\\\u{000D}\u{000A}f`"),
+            ],
+        );
+        lex_test(
+            " `a\\\u{2028}b${}c\\\u{2028}d${}e\\\u{2028}f` ",
+            &[
+                Tt::TemplateStart("`a\\\u{2028}b${"),
+                Tt::TemplateMiddle("}c\\\u{2028}d${"),
+                Tt::TemplateEnd("}e\\\u{2028}f`"),
+            ],
+        );
+        lex_test(
+            " `a\\\u{2029}b${}c\\\u{2029}d${}e\\\u{2029}f` ",
+            &[
+                Tt::TemplateStart("`a\\\u{2029}b${"),
+                Tt::TemplateMiddle("}c\\\u{2029}d${"),
+                Tt::TemplateEnd("}e\\\u{2029}f`"),
+            ],
+        );
 
-        lex_test(" /a\\\u{000A}b/ ", &[ Tt::RegExpLit("/a\\\u{000A}b/", "") ]);
-        lex_test(" /a\\\u{000D}b/ ", &[ Tt::RegExpLit("/a\\\u{000D}b/", "") ]);
-        lex_test(" /a\\\u{000D}\u{000A}b/ ", &[ Tt::RegExpLit("/a\\\u{000D}\u{000A}b/", "") ]);
-        lex_test(" /a\\\u{2028}b/ ", &[ Tt::RegExpLit("/a\\\u{2028}b/", "") ]);
-        lex_test(" /a\\\u{2029}b/ ", &[ Tt::RegExpLit("/a\\\u{2029}b/", "") ]);
+        lex_test(" /a\\\u{000A}b/ ", &[Tt::RegExpLit("/a\\\u{000A}b/", "")]);
+        lex_test(" /a\\\u{000D}b/ ", &[Tt::RegExpLit("/a\\\u{000D}b/", "")]);
+        lex_test(
+            " /a\\\u{000D}\u{000A}b/ ",
+            &[Tt::RegExpLit("/a\\\u{000D}\u{000A}b/", "")],
+        );
+        lex_test(" /a\\\u{2028}b/ ", &[Tt::RegExpLit("/a\\\u{2028}b/", "")]);
+        lex_test(" /a\\\u{2029}b/ ", &[Tt::RegExpLit("/a\\\u{2029}b/", "")]);
     }
 
     #[test]
@@ -2263,76 +2434,85 @@ mod test {
 
     #[test]
     fn test_templates_no_subs() {
-        lex_test(r#"
+        lex_test(
+            r#"
             ``
             `test`
             `\``
             `\\\`\\\\`
             `\${}`
             `$\{}`
-        "#, &[
-            Tt::TemplateNoSub(r#"``"#),
-            Tt::TemplateNoSub(r#"`test`"#),
-            Tt::TemplateNoSub(r#"`\``"#),
-            Tt::TemplateNoSub(r#"`\\\`\\\\`"#),
-            Tt::TemplateNoSub(r#"`\${}`"#),
-            Tt::TemplateNoSub(r#"`$\{}`"#),
-        ]);
+        "#,
+            &[
+                Tt::TemplateNoSub(r#"``"#),
+                Tt::TemplateNoSub(r#"`test`"#),
+                Tt::TemplateNoSub(r#"`\``"#),
+                Tt::TemplateNoSub(r#"`\\\`\\\\`"#),
+                Tt::TemplateNoSub(r#"`\${}`"#),
+                Tt::TemplateNoSub(r#"`$\{}`"#),
+            ],
+        );
     }
 
     #[test]
     fn test_templates_with_subs() {
-        lex_test(r#"
+        lex_test(
+            r#"
             `${}`
             `${{{{a}}}}`
             `text\\${}more${or}less`
             `nesting${`templates`}is${{`cool${ish}.${}`}}o`
-        "#, &[
-            Tt::TemplateStart(r#"`${"#),
-            Tt::TemplateEnd(r#"}`"#),
-
-            Tt::TemplateStart(r#"`${"#),
-            Tt::Lbrace,
-            Tt::Lbrace,
-            Tt::Lbrace,
-            Tt::Id("a"),
-            Tt::Rbrace,
-            Tt::Rbrace,
-            Tt::Rbrace,
-            Tt::TemplateEnd(r#"}`"#),
-
-            Tt::TemplateStart(r#"`text\\${"#),
-            Tt::TemplateMiddle(r#"}more${"#),
-            Tt::Id("or"),
-            Tt::TemplateEnd(r#"}less`"#),
-
-            Tt::TemplateStart(r#"`nesting${"#),
-            Tt::TemplateNoSub(r#"`templates`"#),
-            Tt::TemplateMiddle(r#"}is${"#),
-            Tt::Lbrace,
-            Tt::TemplateStart(r#"`cool${"#),
-            Tt::Id("ish"),
-            Tt::TemplateMiddle(r#"}.${"#),
-            Tt::TemplateEnd(r#"}`"#),
-            Tt::Rbrace,
-            Tt::TemplateEnd(r#"}o`"#),
-        ]);
+        "#,
+            &[
+                Tt::TemplateStart(r#"`${"#),
+                Tt::TemplateEnd(r#"}`"#),
+                Tt::TemplateStart(r#"`${"#),
+                Tt::Lbrace,
+                Tt::Lbrace,
+                Tt::Lbrace,
+                Tt::Id("a"),
+                Tt::Rbrace,
+                Tt::Rbrace,
+                Tt::Rbrace,
+                Tt::TemplateEnd(r#"}`"#),
+                Tt::TemplateStart(r#"`text\\${"#),
+                Tt::TemplateMiddle(r#"}more${"#),
+                Tt::Id("or"),
+                Tt::TemplateEnd(r#"}less`"#),
+                Tt::TemplateStart(r#"`nesting${"#),
+                Tt::TemplateNoSub(r#"`templates`"#),
+                Tt::TemplateMiddle(r#"}is${"#),
+                Tt::Lbrace,
+                Tt::TemplateStart(r#"`cool${"#),
+                Tt::Id("ish"),
+                Tt::TemplateMiddle(r#"}.${"#),
+                Tt::TemplateEnd(r#"}`"#),
+                Tt::Rbrace,
+                Tt::TemplateEnd(r#"}o`"#),
+            ],
+        );
     }
 
     #[test]
     fn test_regexp() {
-        lex_test(r#"
+        lex_test(
+            r#"
             ;/abc/def
             ;/[/]\//i
-        "#, &[
-            Tt::Semi, Tt::RegExpLit(r#"/abc/def"#, "def"),
-            Tt::Semi, Tt::RegExpLit(r#"/[/]\//i"#, "i"),
-        ]);
+        "#,
+            &[
+                Tt::Semi,
+                Tt::RegExpLit(r#"/abc/def"#, "def"),
+                Tt::Semi,
+                Tt::RegExpLit(r#"/[/]\//i"#, "i"),
+            ],
+        );
     }
 
     #[test]
     fn test_slash_vs_regexp() {
-        lex_test(r#"
+        lex_test(
+            r#"
             ;/re/+ /re/
             ;/re// /re/
             ;//comment/
@@ -2414,395 +2594,316 @@ mod test {
             ;typeof/re/
             ;void/re/
             ;yield/re/
-        "#, &[
-            Tt::Semi,
-            Tt::RegExpLit("/re/", ""),
-            Tt::Plus,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::RegExpLit("/re/", ""),
-            Tt::Slash,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-
-            Tt::Semi,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::Slash,
-            Tt::Id("b"),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::Slash,
-            Tt::Id("b"),
-            Tt::Slash,
-            Tt::Id("c"),
-
-            Tt::Semi,
-            Tt::TemplateNoSub("``"),
-            Tt::Slash,
-            Tt::Id("b"),
-
-            Tt::Semi,
-            Tt::TemplateStart("`${"),
-            Tt::TemplateEnd("}`"),
-            Tt::Slash,
-            Tt::Id("b"),
-
-            Tt::Semi,
-            Tt::NumLitDec("0"),
-            Tt::Slash,
-            Tt::Id("b"),
-
-            Tt::Semi,
-            Tt::NumLitBin("0b0"),
-            Tt::Slash,
-            Tt::Id("b"),
-
-            Tt::Semi,
-            Tt::NumLitOct("0o0"),
-            Tt::Slash,
-            Tt::Id("b"),
-
-            Tt::Semi,
-            Tt::NumLitHex("0x0"),
-            Tt::Slash,
-            Tt::Id("b"),
-
-            Tt::Semi,
-            Tt::Lparen,
-            Tt::RegExpLit("/re/", ""),
-            Tt::Rparen,
-
-            Tt::Semi,
-            Tt::Lbrace,
-            Tt::RegExpLit("/re/", ""),
-            Tt::Rbrace,
-
-            Tt::Semi,
-            Tt::Lbracket,
-            Tt::RegExpLit("/re/", ""),
-            Tt::Rbracket,
-
-            Tt::Semi,
-            Tt::TemplateStart("`${"),
-            Tt::RegExpLit("/re/", ""),
-            Tt::TemplateEnd("}`"),
-
-            Tt::Semi,
-            Tt::TemplateStart("`${"),
-            Tt::TemplateMiddle("}${"),
-            Tt::RegExpLit("/re/", ""),
-            Tt::TemplateEnd("}`"),
-
-            Tt::Semi,
-            Tt::Lparen,
-            Tt::Rparen,
-            Tt::Slash,
-            Tt::Id("c"),
-
-            Tt::Semi,
-            Tt::Lbracket,
-            Tt::Rbracket,
-            Tt::Slash,
-            Tt::Id("a"),
-
-            Tt::Semi,
-            Tt::Lbrace,
-            Tt::Rbrace,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::Question,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::Colon,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::Minus,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::Star,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::Percent,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::Slash,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::StarStar,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::Lt,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::LtEq,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::Gt,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::GtEq,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::EqEq,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::BangEq,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::EqEqEq,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::BangEqEq,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::LtLt,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::GtGt,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::GtGtGt,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::And,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::AndAnd,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::Or,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::OrOr,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::Circumflex,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Bang,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Tilde,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Plus,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::DotDotDot,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::Comma,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::PlusPlus,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::MinusMinus,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::PlusPlus,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::MinusMinus,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::Eq,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::PlusEq,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::MinusEq,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::StarEq,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::PercentEq,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::StarStarEq,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::LtLtEq,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::GtGtEq,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::GtGtGtEq,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::AndEq,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::OrEq,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::CircumflexEq,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Id("a"),
-            Tt::EqGt,
-            Tt::RegExpLit("/re/", ""),
-
-
-            Tt::Semi,
-            Tt::Await,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Case,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Delete,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Export,
-            Tt::Default,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Extends,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::In,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Instanceof,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::New,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Return,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Super,
-            Tt::Slash,
-            Tt::Id("b"),
-
-            Tt::Semi,
-            Tt::Switch,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::This,
-            Tt::Slash,
-            Tt::Id("b"),
-
-            Tt::Semi,
-            Tt::Throw,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Typeof,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Void,
-            Tt::RegExpLit("/re/", ""),
-
-            Tt::Semi,
-            Tt::Yield,
-            Tt::RegExpLit("/re/", ""),
-        ]);
+        "#,
+            &[
+                Tt::Semi,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Plus,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Slash,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Semi,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::Slash,
+                Tt::Id("b"),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::Slash,
+                Tt::Id("b"),
+                Tt::Slash,
+                Tt::Id("c"),
+                Tt::Semi,
+                Tt::TemplateNoSub("``"),
+                Tt::Slash,
+                Tt::Id("b"),
+                Tt::Semi,
+                Tt::TemplateStart("`${"),
+                Tt::TemplateEnd("}`"),
+                Tt::Slash,
+                Tt::Id("b"),
+                Tt::Semi,
+                Tt::NumLitDec("0"),
+                Tt::Slash,
+                Tt::Id("b"),
+                Tt::Semi,
+                Tt::NumLitBin("0b0"),
+                Tt::Slash,
+                Tt::Id("b"),
+                Tt::Semi,
+                Tt::NumLitOct("0o0"),
+                Tt::Slash,
+                Tt::Id("b"),
+                Tt::Semi,
+                Tt::NumLitHex("0x0"),
+                Tt::Slash,
+                Tt::Id("b"),
+                Tt::Semi,
+                Tt::Lparen,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Rparen,
+                Tt::Semi,
+                Tt::Lbrace,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Rbrace,
+                Tt::Semi,
+                Tt::Lbracket,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Rbracket,
+                Tt::Semi,
+                Tt::TemplateStart("`${"),
+                Tt::RegExpLit("/re/", ""),
+                Tt::TemplateEnd("}`"),
+                Tt::Semi,
+                Tt::TemplateStart("`${"),
+                Tt::TemplateMiddle("}${"),
+                Tt::RegExpLit("/re/", ""),
+                Tt::TemplateEnd("}`"),
+                Tt::Semi,
+                Tt::Lparen,
+                Tt::Rparen,
+                Tt::Slash,
+                Tt::Id("c"),
+                Tt::Semi,
+                Tt::Lbracket,
+                Tt::Rbracket,
+                Tt::Slash,
+                Tt::Id("a"),
+                Tt::Semi,
+                Tt::Lbrace,
+                Tt::Rbrace,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::Question,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::Colon,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::Minus,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::Star,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::Percent,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::Slash,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::StarStar,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::Lt,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::LtEq,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::Gt,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::GtEq,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::EqEq,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::BangEq,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::EqEqEq,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::BangEqEq,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::LtLt,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::GtGt,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::GtGtGt,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::And,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::AndAnd,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::Or,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::OrOr,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::Circumflex,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Bang,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Tilde,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Plus,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::DotDotDot,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::Comma,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::PlusPlus,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::MinusMinus,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::PlusPlus,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::MinusMinus,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::Eq,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::PlusEq,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::MinusEq,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::StarEq,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::PercentEq,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::StarStarEq,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::LtLtEq,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::GtGtEq,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::GtGtGtEq,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::AndEq,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::OrEq,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::CircumflexEq,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Id("a"),
+                Tt::EqGt,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Await,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Case,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Delete,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Export,
+                Tt::Default,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Extends,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::In,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Instanceof,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::New,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Return,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Super,
+                Tt::Slash,
+                Tt::Id("b"),
+                Tt::Semi,
+                Tt::Switch,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::This,
+                Tt::Slash,
+                Tt::Id("b"),
+                Tt::Semi,
+                Tt::Throw,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Typeof,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Void,
+                Tt::RegExpLit("/re/", ""),
+                Tt::Semi,
+                Tt::Yield,
+                Tt::RegExpLit("/re/", ""),
+            ],
+        );
     }
 
     #[test]
@@ -2818,12 +2919,30 @@ mod test {
 
     #[test]
     fn test_str_lit_value_escapes() {
-        assert_eq!(str_lit_value(r"'\b'"), Ok(Cow::Owned("\u{0008}".to_owned())));
-        assert_eq!(str_lit_value(r"'\t'"), Ok(Cow::Owned("\u{0009}".to_owned())));
-        assert_eq!(str_lit_value(r"'\n'"), Ok(Cow::Owned("\u{000A}".to_owned())));
-        assert_eq!(str_lit_value(r"'\v'"), Ok(Cow::Owned("\u{000B}".to_owned())));
-        assert_eq!(str_lit_value(r"'\f'"), Ok(Cow::Owned("\u{000C}".to_owned())));
-        assert_eq!(str_lit_value(r"'\r'"), Ok(Cow::Owned("\u{000D}".to_owned())));
+        assert_eq!(
+            str_lit_value(r"'\b'"),
+            Ok(Cow::Owned("\u{0008}".to_owned()))
+        );
+        assert_eq!(
+            str_lit_value(r"'\t'"),
+            Ok(Cow::Owned("\u{0009}".to_owned()))
+        );
+        assert_eq!(
+            str_lit_value(r"'\n'"),
+            Ok(Cow::Owned("\u{000A}".to_owned()))
+        );
+        assert_eq!(
+            str_lit_value(r"'\v'"),
+            Ok(Cow::Owned("\u{000B}".to_owned()))
+        );
+        assert_eq!(
+            str_lit_value(r"'\f'"),
+            Ok(Cow::Owned("\u{000C}".to_owned()))
+        );
+        assert_eq!(
+            str_lit_value(r"'\r'"),
+            Ok(Cow::Owned("\u{000D}".to_owned()))
+        );
         assert_eq!(str_lit_value(r#"'\"'"#), Ok(Cow::Owned("\"".to_owned())));
         assert_eq!(str_lit_value(r"'\''"), Ok(Cow::Owned("'".to_owned())));
         assert_eq!(str_lit_value(r"'\\'"), Ok(Cow::Owned("\\".to_owned())));

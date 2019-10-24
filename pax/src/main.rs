@@ -948,7 +948,7 @@ fn run() -> Result<(), CliError> {
 }
 
 const APP_NAME: &str = env!("CARGO_PKG_NAME");
-const EXE_NAME: &str = "px";
+const EXE_NAME: &str = "oax";
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn write_usage(f: &mut fmt::Formatter) -> fmt::Result {
@@ -1334,7 +1334,7 @@ impl Worker {
                     return Err(CliError::InvalidUtf8 {
                         context: module.to_owned(),
                         err,
-                    })
+                    });
                 }
             }
         };
@@ -1662,7 +1662,7 @@ impl Resolver {
             match package_info.browser_substitutions.0.get(path) {
                 Some(BrowserSubstitution::Ignore) => return PathSubstitution::Ignore,
                 Some(BrowserSubstitution::Replace(ref path)) => {
-                    return PathSubstitution::Replace(path.clone())
+                    return PathSubstitution::Replace(path.clone());
                 }
                 None => {}
             }

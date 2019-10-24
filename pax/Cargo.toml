@@ -1,5 +1,5 @@
 [package]
-name = "pax"
+name = "oax"
 version = "0.4.0"
 authors = ["Nathan"]
 
@@ -19,7 +19,7 @@ exclude = [
 ]
 
 [[bin]]
-name = "px"
+name = "oax"
 path = "src/main.rs"
 
 [features]
