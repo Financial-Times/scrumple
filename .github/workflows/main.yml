@@ -61,7 +61,7 @@ jobs:
         include:
           - os: ubuntu-latest
             rust: stable
-            target: x86_64-unknown-linux-musl
+            target: x86_64-unknown-linux-gnu
             bin: oax
             name: oax-Linux-x86_64.tar.gz
           - os: macOS-latest
