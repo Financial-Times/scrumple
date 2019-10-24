@@ -42,9 +42,7 @@ impl<I: Iterator<Item = String>> Expand<I> {
     pub fn next_arg(&mut self) -> Option<String> {
         match self.state {
             State::Done => None,
-            State::Start |
-            State::Raw |
-            State::ShortOption(_) => self.args.next(),
+            State::Start | State::Raw | State::ShortOption(_) => self.args.next(),
         }
     }
 }
@@ -59,7 +57,7 @@ impl<I: Iterator<Item = String>> Iterator for Expand<I> {
                     let arg = match self.args.next() {
                         None => {
                             self.state = State::Done;
-                            return None
+                            return None;
                         }
                         Some(arg) => arg,
                     };
@@ -77,7 +75,7 @@ impl<I: Iterator<Item = String>> Iterator for Expand<I> {
                                 }
                                 Some(_) => Type::Short,
                                 None => Type::Pos,
-                            }
+                            },
                             _ => Type::Pos,
                         }
                     };
@@ -89,12 +87,8 @@ impl<I: Iterator<Item = String>> Iterator for Expand<I> {
                             self.arg = Some(arg);
                             self.state = State::ShortOption(1);
                         }
-                        Type::Long => {
-                            return Some(Arg::Opt(arg))
-                        }
-                        Type::Pos => {
-                            return Some(Arg::Pos(arg))
-                        }
+                        Type::Long => return Some(Arg::Opt(arg)),
+                        Type::Pos => return Some(Arg::Pos(arg)),
                     }
                 }
                 State::Raw => {
@@ -102,7 +96,7 @@ impl<I: Iterator<Item = String>> Iterator for Expand<I> {
                     if arg.is_none() {
                         self.state = State::Done;
                     }
-                    return arg.map(Arg::Pos)
+                    return arg.map(Arg::Pos);
                 }
                 State::ShortOption(n) => {
                     let c = {
@@ -121,7 +115,7 @@ impl<I: Iterator<Item = String>> Iterator for Expand<I> {
                     if self.state == State::Start {
                         self.arg = None;
                     }
-                    return Some(Arg::Opt(format!("-{}", c)))
+                    return Some(Arg::Opt(format!("-{}", c)));
                 }
                 State::Done => return None,
             }
@@ -136,7 +130,12 @@ mod test {
 
     #[test]
     fn test_parser() {
-        let mut args = expand("-f -bz - --a --foo c  -- -f -bz - --a --foo c ".split(" ").into_iter().map(ToOwned::to_owned));
+        let mut args = expand(
+            "-f -bz - --a --foo c  -- -f -bz - --a --foo c "
+                .split(" ")
+                .into_iter()
+                .map(ToOwned::to_owned),
+        );
         assert_eq!(args.next(), Some(Arg::Opt("-f".to_owned())));
         assert_eq!(args.next(), Some(Arg::Opt("-b".to_owned())));
         assert_eq!(args.next(), Some(Arg::Opt("-z".to_owned())));
@@ -156,7 +155,12 @@ mod test {
 
     #[test]
     fn test_next_arg() {
-        let mut args = expand("0 -bz 1 2 --something 3 4".split(" ").into_iter().map(ToOwned::to_owned));
+        let mut args = expand(
+            "0 -bz 1 2 --something 3 4"
+                .split(" ")
+                .into_iter()
+                .map(ToOwned::to_owned),
+        );
         assert_eq!(args.next_arg(), Some("0".to_owned()));
         assert_eq!(args.next(), Some(Arg::Opt("-b".to_owned())));
         assert_eq!(args.next_arg(), Some("1".to_owned()));

@@ -2,16 +2,16 @@
 //!
 //! In general, skipping functions are overly permissive, i.e., they may accept invalid constructs, but they will never reject valid ones. They will also never skip too far.
 
-use std::{fmt, error};
 use ast;
 use lex::{self, Tt};
+use std::{error, fmt};
 
 macro_rules! expected {
     ($lex:expr, $msg:expr) => {{
         return Err(Error {
             kind: ErrorKind::Expected($msg),
             span: $lex.recover_span($lex.here().span).with_owned(),
-        })
+        });
     }};
 }
 
@@ -442,9 +442,17 @@ pub fn balanced_parens<'f, 's>(lex: &mut lex::Lexer<'f, 's>, nesting: usize) -> 
 /// # }
 /// ```
 #[inline]
-pub fn balanced<'f, 's, L, R>(lex: &mut lex::Lexer<'f, 's>, mut nesting: usize, mut l: L, mut r: R, expect: &'static str) -> Result<()> where
-L: FnMut(Tt) -> bool,
-R: FnMut(Tt) -> bool {
+pub fn balanced<'f, 's, L, R>(
+    lex: &mut lex::Lexer<'f, 's>,
+    mut nesting: usize,
+    mut l: L,
+    mut r: R,
+    expect: &'static str,
+) -> Result<()>
+where
+    L: FnMut(Tt) -> bool,
+    R: FnMut(Tt) -> bool,
+{
     debug_assert!(nesting > 0);
     #[cold]
     #[inline(never)]
@@ -458,7 +466,7 @@ R: FnMut(Tt) -> bool {
         } else if r(tt) {
             nesting -= 1;
         } else if tt == Tt::Eof {
-            return unbalanced(lex, expect)
+            return unbalanced(lex, expect);
         }
     }
     Ok(())
@@ -466,8 +474,8 @@ R: FnMut(Tt) -> bool {
 
 #[cfg(test)]
 mod test {
-    use skip::{self, Prec};
     use lex::{self, Tt};
+    use skip::{self, Prec};
 
     fn assert_skips_expr(source: &str, prec: Prec) {
         let mut cleaned = String::new();
@@ -482,11 +490,12 @@ mod test {
         let here = lexer.here();
         let here_pos = here.span.start - here.ws_before.len();
         assert!(
-            here_pos <= prefix.len() &&
-            prefix.len() <= here.span.start,
+            here_pos <= prefix.len() && prefix.len() <= here.span.start,
             "expected skip::expr to skip to:\n{}@{}\nbut it skipped to:\n{}@{}",
-            &cleaned[..prefix.len()], &cleaned[prefix.len()..],
-            &cleaned[..here_pos], &cleaned[here_pos..],
+            &cleaned[..prefix.len()],
+            &cleaned[prefix.len()..],
+            &cleaned[..here_pos],
+            &cleaned[here_pos..],
         );
     }
 
@@ -501,7 +510,10 @@ mod test {
         assert_skips_expr("1 + 2 @\n 3 + 4", Prec::NoComma);
         assert_skips_expr("1 + 2 @\n 3 + 4", Prec::Any);
         assert_skips_expr("a(b, c, d).e < f > g <= h >= i == j != k === l !== m + n - o * p % q ** r++ << s-- >> t >>> u & v | w ^ x && y || z / _ @, next", Prec::NoComma);
-        assert_skips_expr("x = x += x -= x *= x %= x **= x <<= x >>= x >>>= x &= x |= x ^= x /= x @, next", Prec::NoComma);
+        assert_skips_expr(
+            "x = x += x -= x *= x %= x **= x <<= x >>= x >>>= x &= x |= x ^= x /= x @, next",
+            Prec::NoComma,
+        );
         assert_skips_expr("x in y instanceof z @, next", Prec::NoComma);
     }
 
@@ -589,7 +601,10 @@ mod test {
     fn test_skip_expr_primary_template() {
         assert_skips_expr("`template`@", Prec::Primary);
         assert_skips_expr("`template ${with} some ${subs}`@", Prec::Primary);
-        assert_skips_expr("`template ${`with`} some ${`nested ${subs}`}`@", Prec::Primary);
+        assert_skips_expr(
+            "`template ${`with`} some ${`nested ${subs}`}`@",
+            Prec::Primary,
+        );
     }
 
     #[test]
@@ -638,7 +653,8 @@ mod test {
             |tt| tt == Tt::Lparen,
             |tt| tt == Tt::Rparen,
             "')'",
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(lexer.here().tt, Tt::Id("c"));
 
         let mut lexer = lex::Lexer::new_unnamed("(((-a)())((()(b)())))c)");
@@ -656,7 +672,9 @@ mod test {
         skip::balanced_braces(&mut lexer, 1).unwrap();
         assert_eq!(lexer.here().tt, Tt::Id("c"));
 
-        let mut lexer = lex::Lexer::new_unnamed("`${`${`${-a}` + `${v}`}` - `${`${`${x}` * `${b}` * `${z}`}`}`}`c}`");
+        let mut lexer = lex::Lexer::new_unnamed(
+            "`${`${`${-a}` + `${v}`}` - `${`${`${x}` * `${b}` * `${z}`}`}`}`c}`",
+        );
         lexer.advance(); // skip first Tt::TemplateStart
         skip::balanced_templates(&mut lexer, 1).unwrap();
         assert_eq!(lexer.here().tt, Tt::Id("c"));
@@ -672,6 +690,7 @@ mod test {
             |tt| tt == Tt::Lparen,
             |tt| tt == Tt::Rparen,
             "')'",
-        ).unwrap();
+        )
+        .unwrap();
     }
 }
