@@ -440,7 +440,7 @@ pub fn str_lit_value(source: &str) -> Result<Cow<str>, ParseStrLitError> {
             // '\u{2029}' => {}
 
             // TODO legacy octal
-            // '1'...'9' => unimplemented!()
+            // '1'..='9' => unimplemented!()
 
             // c @ '\'' |
             // c @ '\\' |
@@ -1213,7 +1213,7 @@ impl<'f, 's> Lexer<'f, 's> {
                     }
                     Some(_) | None => Tt::Dot,
                 },
-                Some('0'...'9') => {
+                Some('0'..='9') => {
                     self.stream.advance();
                     self.stream.skip_dec_digits();
                     eat_s!(self.stream,
@@ -1272,7 +1272,7 @@ impl<'f, 's> Lexer<'f, 's> {
                 ),
                 _ => Tt::NumLitDec(self.stream.str_from(start)),
             ),
-            '1'...'9' => {
+            '1'..='9' => {
                 self.stream.skip_dec_digits();
                 eat_s!(self.stream,
                     '.' => {
@@ -1304,7 +1304,7 @@ impl<'f, 's> Lexer<'f, 's> {
 
             _ => {
                 // TODO '\\'
-                if matches!(here, 'a' ... 'z' | 'A' ... 'Z' | '0' ... '9' | '$' | '_')
+                if matches!(here, 'a' ..= 'z' | 'A' ..= 'Z' | '0' ..= '9' | '$' | '_')
                     || UnicodeXID::is_xid_start(here)
                 {
                     self.stream.skip_id_continue_chars();
@@ -1494,7 +1494,7 @@ pub trait Stream<'s> {
     #[inline]
     fn skip_bin_digits(&mut self) {
         self.skip_while(|c| match c {
-            '0'...'1' => true,
+            '0'..='1' => true,
             _ => false,
         });
     }
@@ -1503,7 +1503,7 @@ pub trait Stream<'s> {
     #[inline]
     fn skip_oct_digits(&mut self) {
         self.skip_while(|c| match c {
-            '0'...'7' => true,
+            '0'..='7' => true,
             _ => false,
         });
     }
@@ -1512,7 +1512,7 @@ pub trait Stream<'s> {
     #[inline]
     fn skip_dec_digits(&mut self) {
         self.skip_while(|c| match c {
-            '0'...'9' => true,
+            '0'..='9' => true,
             _ => false,
         });
     }
@@ -1521,7 +1521,7 @@ pub trait Stream<'s> {
     #[inline]
     fn skip_hex_digits(&mut self) {
         self.skip_while(|c| match c {
-            '0'...'9' | 'a'...'f' | 'A'...'F' => true,
+            '0'..='9' | 'a'..='f' | 'A'..='F' => true,
             _ => false,
         });
     }
@@ -1530,9 +1530,9 @@ pub trait Stream<'s> {
     #[inline]
     fn skip_id_continue_chars(&mut self) {
         self.skip_while(|c| match c {
-              'a'...'z'
-            | 'A'...'Z'
-            | '0'...'9'
+              'a'..='z'
+            | 'A'..='Z'
+            | '0'..='9'
             | '$'
             | '_'
             | '\u{200C}' // ZERO WIDTH NON-JOINER
