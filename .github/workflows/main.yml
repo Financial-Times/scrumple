@@ -130,6 +130,9 @@ jobs:
         cd npm/
         ref='${{github.ref}}'
         npm version ${ref#refs/tags/}
-        npm publish
+        if [[ "${{ matrix.os }}" == "windows-latest" ]] 
+        then
+          npm publish
+        fi
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
