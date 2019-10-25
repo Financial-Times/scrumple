@@ -36,7 +36,7 @@ jobs:
     needs: [codestyle, compile]
     strategy:
       matrix:
-        os: [ubuntu-latest, macOS-latest]
+        os: [ubuntu-latest, macOS-latest, windows-latest]
         rust: [stable, beta, nightly]
     runs-on: ${{ matrix.os }}
 
@@ -57,7 +57,7 @@ jobs:
     needs: [test]
     strategy:
       matrix:
-        os: [ubuntu-latest, macOS-latest]
+        os: [ubuntu-latest, macOS-latest, windows-latest]
         include:
           - os: ubuntu-latest
             rust: stable
@@ -69,6 +69,11 @@ jobs:
             target: x86_64-apple-darwin
             bin: oax
             name: oax-Darwin-x86_64.tar.gz
+          - os: windows-latest
+            rust: stable
+            target: x86_64-pc-windows-msvc
+            bin: rust-bin.exe
+            name: rust-bin-Windows-x86_64.zip
     runs-on: ${{ matrix.os }}
     steps:
     - name: Setup Rust
