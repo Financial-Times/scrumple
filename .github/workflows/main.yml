@@ -72,8 +72,8 @@ jobs:
           - os: windows-latest
             rust: stable
             target: x86_64-pc-windows-msvc
-            bin: rust-bin.exe
-            name: rust-bin-Windows-x86_64.zip
+            bin: oax.exe
+            name: oax-Windows-x86_64.zip
     runs-on: ${{ matrix.os }}
     steps:
     - name: Setup Rust
