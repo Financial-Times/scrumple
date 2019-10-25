@@ -111,8 +111,8 @@ jobs:
     - name: Publish sub-packages to npm
       if: startsWith(github.ref, 'refs/tags/')
       run: |
-        cp target/${{ matrix.target }}/release/${{ matrix.bin }} npm/${{ npm-name}}/
-        cd npm/${{ npm-name}}/
+        cp target/${{ matrix.target }}/release/${{ matrix.bin }} npm/${{ matrix.npm-name }}/
+        cd npm/${{ matrix.npm-name }}/
         ref='${{github.ref}}'
         npm version ${ref#refs/tags/}
         npm publish --dry-run
