@@ -109,7 +109,6 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Publish sub-packages to npm
-      uses: actions/setup-node@v1
       if: startsWith(github.ref, 'refs/tags/')
       run: |
         cp target/${{ matrix.target }}/release/${{ matrix.bin }} npm/${{ npm-name}}/
@@ -120,7 +119,6 @@ jobs:
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
     - name: Publish meta-package to npm
-      uses: actions/setup-node@v1
       if: startsWith(github.ref, 'refs/tags/')
       run: |
         cd npm/
