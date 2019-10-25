@@ -413,6 +413,9 @@ fn test_resolve() {
 }
 #[test]
 fn test_resolve_unicode() {
+    if cfg!(windows) {
+        return;
+    }
     test_resolve_unicode_with(assert_resolves);
 }
 fn test_resolve_with<F>(mut assert_resolves: F)
@@ -2603,6 +2606,9 @@ where
 
 #[test]
 fn test_resolve_consistency() {
+    if cfg!(windows) {
+        return;
+    }
     // meta-test: ensure test_resolve matches node behavior
 
     type Cases = FnvHashSet<(String, Option<String>)>;
