@@ -1,0 +1,12 @@
+{
+  "name": "oax",
+  "version": "0.5.3",
+  "description": "oax - fast bundler for JavaScript projects",
+  "license": "MIT",
+  "repository": "Financial-times/oax",
+  "optionalDependencies": {
+    "oax-darwin": "0.5.3",
+    "oax-linux-64": "0.5.3",
+    "oax-windows-64": "0.5.3"
+  }
+}

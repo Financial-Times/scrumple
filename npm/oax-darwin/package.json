@@ -1,0 +1,8 @@
+{
+  "name": "oax-darwin",
+  "version": "0.5.3",
+  "description": "Pre-compiled oax binary for darwin/osx - fast bundler for JavaScript projects",
+  "license": "MIT",
+  "repository": "Financial-times/oax",
+  "os" : [ "darwin" ]
+}
