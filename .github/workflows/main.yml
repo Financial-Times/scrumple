@@ -64,16 +64,19 @@ jobs:
             target: x86_64-unknown-linux-gnu
             bin: oax
             name: oax-linux64.tar.gz
+            npm-name: oax-linux-64
           - os: macOS-latest
             rust: stable
             target: x86_64-apple-darwin
             bin: oax
             name: oax-osx.tar.gz
+            npm-name: oax-darwin
           - os: windows-latest
             rust: stable
             target: x86_64-pc-windows-msvc
             bin: oax.exe
             name: oax-windows64.zip
+            npm-name: oax-windows-64
     runs-on: ${{ matrix.os }}
     steps:
     - name: Setup Rust
@@ -98,10 +101,31 @@ jobs:
           tar czvf ../../../${{ matrix.name }} ${{ matrix.bin }}
         fi
         cd -
-    - name: Publish
+    - name: Publish to GitHub
       uses: softprops/action-gh-release@v1
       if: startsWith(github.ref, 'refs/tags/')
       with:
           files: 'oax*'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Publish sub-packages to npm
+      uses: actions/setup-node@v1
+      if: startsWith(github.ref, 'refs/tags/')
+      run: |
+        cp target/${{ matrix.target }}/release/${{ matrix.bin }} npm/${{ npm-name}}/
+        cd npm/${{ npm-name}}/
+        ref='${{github.ref}}'
+        npm version ${ref#refs/tags/}
+        npm publish --dry-run
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    - name: Publish meta-package to npm
+      uses: actions/setup-node@v1
+      if: startsWith(github.ref, 'refs/tags/')
+      run: |
+        cd npm/
+        ref='${{github.ref}}'
+        npm version ${ref#refs/tags/}
+        npm publish --dry-run
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
