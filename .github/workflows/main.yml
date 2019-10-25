@@ -63,17 +63,17 @@ jobs:
             rust: stable
             target: x86_64-unknown-linux-gnu
             bin: oax
-            name: oax-Linux-x86_64.tar.gz
+            name: oax-linux64.tar.gz
           - os: macOS-latest
             rust: stable
             target: x86_64-apple-darwin
             bin: oax
-            name: oax-Darwin-x86_64.tar.gz
+            name: oax-osx.tar.gz
           - os: windows-latest
             rust: stable
             target: x86_64-pc-windows-msvc
             bin: oax.exe
-            name: oax-Windows-x86_64.zip
+            name: oax-windows64.zip
     runs-on: ${{ matrix.os }}
     steps:
     - name: Setup Rust
