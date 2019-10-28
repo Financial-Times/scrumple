@@ -4,6 +4,7 @@
   "description": "Pre-compiled oax binary for 64-bit linux - fast bundler for JavaScript projects",
   "license": "MIT",
   "repository": "Financial-times/oax",
+  "bin": "oax",
   "os" : [ "linux" ],
   "cpu" : [ "x64" ]
 }

@@ -4,9 +4,13 @@
   "description": "oax - fast bundler for JavaScript projects",
   "license": "MIT",
   "repository": "Financial-times/oax",
+  "bin": "oax",
   "optionalDependencies": {
     "oax-darwin": "0.5.12",
     "oax-linux-64": "0.5.12",
     "oax-windows-64": "0.5.12"
+  },
+  "scripts": {
+    "postinstall": "node ./postinstall.js"
   }
 }
