@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const pathToOaxBinary = require('./index.js');
-const oaxDestiation = path.join(__dirname, './oax');
+const oaxDestination = path.join(__dirname, './oax');
 
-fs.symlinkSync(pathToOaxBinary, oaxDestiation);
+fs.unlinkSync(oaxDestination);
+fs.symlinkSync(pathToOaxBinary, oaxDestination);
