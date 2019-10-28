@@ -4,7 +4,9 @@
   "description": "Pre-compiled oax binary for darwin/osx - fast bundler for JavaScript projects",
   "license": "MIT",
   "repository": "Financial-times/oax",
-  "bin": "oax",
+  "bin": {
+    "oax": "oax"
+  },
   "os": [
     "darwin"
   ]
