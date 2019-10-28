@@ -123,13 +123,6 @@ jobs:
         npm publish
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-    - name: Update dependencies of meta-package
-      shell: bash
-      if: startsWith(github.ref, 'refs/tags/')
-      run: |
-        cd npm/
-        ref='${{github.ref}}'
-        npm install ${{ matrix.npm-name }}@${ref#refs/tags/} --save
     - name: Publish meta-package to npm
       shell: bash
       if: startsWith(github.ref, 'refs/tags/')
@@ -139,6 +132,8 @@ jobs:
         npm version ${ref#refs/tags/}
         if [[ "${{ matrix.os }}" == "windows-latest" ]] 
         then
+          npx npm-check-updates -u
+          npm update
           npm publish
         fi
       env:
