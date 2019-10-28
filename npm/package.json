@@ -1,6 +1,6 @@
 {
   "name": "oax",
-  "version": "0",
+  "version": "0.0.0",
   "description": "oax - fast bundler for JavaScript projects",
   "license": "MIT",
   "repository": "Financial-times/oax",
