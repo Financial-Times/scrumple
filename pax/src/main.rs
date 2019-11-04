@@ -178,7 +178,7 @@ impl<'a, 'b> Writer<'a, 'b> {
 
         for (file, info) in self.sorted_modules() {
             let id = Self::name_path(&file);
-            let deps = Self::stringify_deps(&info.deps);
+            let deps = Self::stringify_deps(&info.deps, PathBuf::from(self.entry_point));
             let filename = Self::js_path(&file);
 
             write!(w,
@@ -365,7 +365,7 @@ impl<'a, 'b> Writer<'a, 'b> {
         )
     }
 
-    fn stringify_deps(deps: &FnvHashMap<String, Resolved>) -> String {
+    fn stringify_deps(deps: &FnvHashMap<String, Resolved>, entry_point: PathBuf) -> String {
         let mut result = "{".to_owned();
         let mut comma = false;
         for (name, resolved) in deps {
@@ -385,7 +385,18 @@ impl<'a, 'b> Writer<'a, 'b> {
                     }
                     result.push_str(&to_quoted_json_string(name));
                     result.push(':');
-                    Self::write_name_path(path, &mut result);
+                    let parent = entry_point.parent().unwrap();
+
+                    match path.as_path().strip_prefix(parent) {
+                        Ok(path) => {
+                            eprintln!("Ok!, {}", path.to_str().unwrap());
+                            Self::write_name_path(path, &mut result)
+                        }
+                        Err(_) => {
+                            eprintln!("Err!, {}", path.to_str().unwrap());
+                            Self::write_name_path(path, &mut result);
+                        }
+                    }
                     comma = true;
                 }
             }
