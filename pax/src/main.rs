@@ -203,7 +203,11 @@ impl<'a, 'b> Writer<'a, 'b> {
             }
             write!(w, "}}")?;
         }
-        let main = Self::name_path(self.entry_point);
+        let main = Self::name_path(
+            self.entry_point
+                .strip_prefix(self.entry_point.parent().unwrap())
+                .unwrap(),
+        );
         write!(w,
             "\n  Pax.main = {main}; Pax.makeRequire(null)()\n  if (typeof module !== 'undefined') module.exports = Pax.main.module && Pax.main.module.exports\n",
             main = main,
@@ -694,7 +698,20 @@ pub fn bundle(
     let writer = Writer {
         modules: modules
             .into_iter()
-            .map(|(k, ms)| (k, ms.unwrap()))
+            .map(|(k, ms)| {
+                (
+                    if k.as_path().starts_with(entry_point.parent().unwrap()) {
+                        PathBuf::from(
+                            k.as_path()
+                                .strip_prefix(entry_point.parent().unwrap())
+                                .unwrap(),
+                        )
+                    } else {
+                        k
+                    },
+                    ms.unwrap(),
+                )
+            })
             .collect(),
         entry_point,
         map_output,
