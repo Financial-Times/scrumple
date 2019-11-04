@@ -699,18 +699,13 @@ pub fn bundle(
         modules: modules
             .into_iter()
             .map(|(k, ms)| {
-                (
-                    if k.as_path().starts_with(entry_point.parent().unwrap()) {
-                        PathBuf::from(
-                            k.as_path()
-                                .strip_prefix(entry_point.parent().unwrap())
-                                .unwrap(),
-                        )
-                    } else {
-                        k
-                    },
-                    ms.unwrap(),
-                )
+                let parent = entry_point.parent().unwrap();
+                let ms = ms.unwrap();
+
+                match k.as_path().strip_prefix(parent) {
+                    Ok(path) => (PathBuf::from(path), ms),
+                    Err(_) => (k, ms),
+                }
             })
             .collect(),
         entry_point,
