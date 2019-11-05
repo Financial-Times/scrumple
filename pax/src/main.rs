@@ -389,11 +389,9 @@ impl<'a, 'b> Writer<'a, 'b> {
 
                     match path.as_path().strip_prefix(parent) {
                         Ok(path) => {
-                            eprintln!("Ok!, {}", path.to_str().unwrap());
                             Self::write_name_path(path, &mut result)
                         }
                         Err(_) => {
-                            eprintln!("Err!, {}", path.to_str().unwrap());
                             Self::write_name_path(path, &mut result);
                         }
                     }
