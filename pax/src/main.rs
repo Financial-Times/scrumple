@@ -388,9 +388,7 @@ impl<'a, 'b> Writer<'a, 'b> {
                     let parent = entry_point.parent().unwrap();
 
                     match path.as_path().strip_prefix(parent) {
-                        Ok(path) => {
-                            Self::write_name_path(path, &mut result)
-                        }
+                        Ok(path) => Self::write_name_path(path, &mut result),
                         Err(_) => {
                             Self::write_name_path(path, &mut result);
                         }
