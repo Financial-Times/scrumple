@@ -237,7 +237,7 @@ impl<'a, 'b> Writer<'a, 'b> {
     fn write_map_to<W: io::Write>(&self, w: &mut W) -> serde_json::Result<()> {
         // https://sourcemaps.info/spec.html
 
-        let ref modules = self.sorted_modules();
+        let modules = &self.sorted_modules();
         let dir = self.entry_point.parent().unwrap();
 
         #[derive(Serialize, Debug)]
