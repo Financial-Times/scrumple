@@ -218,9 +218,9 @@ impl<'a, 'b> Writer<'a, 'b> {
             SourceMapOutput::Inline => {
                 let mut map = Vec::new();
                 self.write_map_to(&mut map)?;
-                write!(
+                writeln!(
                     w,
-                    "//# sourceMappingURL=data:application/json;charset=utf-8;base64,{data}\n",
+                    "//# sourceMappingURL=data:application/json;charset=utf-8;base64,{data}",
                     data = base64::encode(&map),
                 )?;
             }
@@ -228,7 +228,7 @@ impl<'a, 'b> Writer<'a, 'b> {
                 // TODO handle error
                 let relative = path.relative_from(output_file.parent().unwrap());
                 let map = relative.as_ref().unwrap_or(path);
-                write!(w, "//# sourceMappingURL={map}\n", map = map.display(),)?;
+                writeln!(w, "//# sourceMappingURL={map}", map = map.display(),)?;
             }
         }
         Ok(())
@@ -989,7 +989,7 @@ fn write_help(f: &mut fmt::Formatter) -> fmt::Result {
     write!(f, "\n\n")?;
     write_usage(f)?;
     write!(f, "\n\n")?;
-    write!(
+    writeln!(
         f,
         "\
 Options:
@@ -1052,8 +1052,7 @@ Options:
         Print this message.
 
     -v, --version
-        Print version information.
-"
+        Print version information."
     )
 }
 
