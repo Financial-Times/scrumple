@@ -480,7 +480,7 @@ impl Vlq {
             l += 1;
         }
         self.buf[l] = B64[y];
-        str::from_utf8(&self.buf[0..l + 1]).unwrap()
+        str::from_utf8(&self.buf[0..=l]).unwrap()
     }
 }
 const B64: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
