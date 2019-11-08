@@ -12,6 +12,7 @@ keywords = ["js", "javascript", "es", "ecmascript", "bundler"]
 categories = ["development-tools", "command-line-utilities", "web-programming"]
 
 autobins = true
+
 exclude = [
   "examples/*",
   "private/*",
@@ -27,7 +28,7 @@ default = []
 bench = []
 
 [dependencies]
-esparse = { version = "0.1.0", path = "../esparse" }
+esparse = "0.1.0"
 regex = "1"
 fnv = "1.0.3"
 lazy_static = "1.1.0"
