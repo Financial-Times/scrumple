@@ -1,5 +1,0 @@
-[workspace]
-members = ["esparse", "pax"]
-
-[profile.release]
-lto = true
