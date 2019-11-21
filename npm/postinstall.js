@@ -14,7 +14,7 @@ if (process.platform === "win32" && process.arch === "x64") {
     throw new Error('oax does not have a precompiled binary for the platform/architecture you are using. Please contact Origami or open an issue on https://github.com/Financial-Times/oax/issues');
 }
 
-const oaxDestination = path.join(__dirname, './oax');
+const oaxDestination = './oax';
 
 fs.unlinkSync(oaxDestination);
-fs.symlinkSync(pathToOaxBinary, oaxDestination);
+fs.symlinkSync(path.relative(__dirname, pathToOaxBinary), oaxDestination);
