@@ -17,4 +17,4 @@ if (process.platform === "win32" && process.arch === "x64") {
 const oaxDestination = path.join(__dirname, './oax');
 
 fs.unlinkSync(oaxDestination);
-fs.symlinkSync(pathToOaxBinary, oaxDestination);
+fs.copyFileSync(pathToOaxBinary, oaxDestination);
