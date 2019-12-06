@@ -1,56 +1,16 @@
 #![cfg_attr(all(test, feature = "bench"), feature(test))]
 
-#[macro_use]
-extern crate esparse;
-extern crate crossbeam;
-extern crate notify;
-extern crate num_cpus;
-extern crate serde;
-#[macro_use]
-extern crate serde_derive;
-extern crate base64;
-extern crate fnv;
-extern crate memchr;
-extern crate regex;
-extern crate serde_json;
-#[macro_use]
-extern crate matches;
-#[macro_use]
-extern crate lazy_static;
-
-#[cfg(test)]
-#[macro_use]
-extern crate cfg_if;
-#[cfg(test)]
-#[macro_use]
-extern crate indoc;
-#[cfg(test)]
-extern crate tempfile;
-#[cfg(test)]
-extern crate walkdir;
-
-use crossbeam::sync::SegQueue;
-use esparse::lex::{self, Tt};
-use fnv::{FnvHashMap, FnvHashSet};
+use esparse::lex::{self};
+use fnv::FnvHashSet;
+use lazy_static::lazy_static;
 use notify::Watcher;
 use regex::Regex;
-use serde::de::SeqAccess;
-use serde::de::{self, Deserialize, Deserializer, Visitor};
-use serde::ser::{Serialize, SerializeSeq, Serializer};
 use std::any::Any;
-use std::borrow::Cow;
-use std::cell::RefCell;
 use std::ffi::OsString;
-use std::fmt::{Display, Write};
-use std::io::prelude::*;
-use std::marker::PhantomData;
-use std::path::{self, Component, Path, PathBuf};
-use std::rc::Rc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::path::{Path, PathBuf};
 use std::sync::mpsc;
-use std::sync::Arc;
-use std::{env, fmt, fs, io, iter, mem, process, str, string, thread, time};
 
+use std::{env, fmt, io, iter, process, str, string, thread, time};
 mod es6;
 mod opts;
 
