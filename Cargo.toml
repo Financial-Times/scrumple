@@ -6,7 +6,7 @@ authors = ["Nathan"]
 description = "The fastest JavaScript bundler in the galaxy."
 repository = "https://github.com/nathan/pax"
 license = "MIT"
-readme = "../README.md"
+readme = "./README.md"
 
 keywords = ["js", "javascript", "es", "ecmascript", "bundler"]
 categories = ["development-tools", "command-line-utilities", "web-programming"]
