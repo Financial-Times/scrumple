@@ -1,11 +1,24 @@
 use fnv::FnvHashSet;
 use std::borrow::Cow;
-use std::fmt;
 use std::fmt::Write;
 
-use esparse;
+use esparse::eat;
 use esparse::lex::{self, Tt};
 use esparse::skip::{self, Prec};
+use matches::matches;
+
+pub mod error;
+pub mod export;
+pub mod import;
+
+use self::error::*;
+use self::export::*;
+use self::import::*;
+
+// Define our own error and result for some reason
+// TODO figure out if we can use the regular one so we can use `?` instead of
+// `.unwrap`. (or fix the traits??)
+pub type Result<T> = ::std::result::Result<T, Error>;
 
 macro_rules! expected {
     ($lex:expr, $msg:expr) => {{
@@ -16,80 +29,31 @@ macro_rules! expected {
     }};
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub enum Export<'s> {
-    Default(&'s str),
-    AllFrom(&'s str, Cow<'s, str>),
-    Named(Vec<ExportSpec<'s>>),
-    NamedFrom(Vec<ExportSpec<'s>>, &'s str, Cow<'s, str>),
+struct ImportBindingNames {
+    names: Vec<String>,
+    calls: Vec<String>,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
-pub struct ExportSpec<'s> {
-    bind: &'s str,
-    name: &'s str,
-}
-
-impl<'s> ExportSpec<'s> {
-    #[inline]
-    pub fn new(bind: &'s str, name: &'s str) -> Self {
-        ExportSpec { name, bind }
-    }
-
-    #[inline]
-    pub fn same(name: &'s str) -> Self {
-        ExportSpec::new(name, name)
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Hash)]
-pub enum ParsedImport<'s> {
-    Import(Import<'s>),
-    ImportMeta,
-}
-
-#[derive(Debug, PartialEq, Eq, Hash)]
-pub struct Import<'s> {
-    module_source: &'s str,
-    module: Cow<'s, str>,
-    default_bind: Option<&'s str>,
-    binds: Bindings<'s>,
-}
-
-impl<'s> Import<'s> {
-    #[inline]
-    pub fn new(module_source: &'s str, module: Cow<'s, str>) -> Self {
-        Import {
-            module_source,
-            module,
-            default_bind: None,
-            binds: Bindings::None,
+impl ImportBindingNames {
+    fn new() -> ImportBindingNames {
+        ImportBindingNames {
+            names: Vec::default(),
+            calls: Vec::default(),
         }
     }
-}
 
-#[derive(Debug, PartialEq, Eq, Hash)]
-pub enum Bindings<'s> {
-    None,
-    NameSpace(&'s str),
-    Named(Vec<ImportSpec<'s>>),
-}
-
-#[derive(Debug, PartialEq, Eq, Hash)]
-pub struct ImportSpec<'s> {
-    name: &'s str,
-    bind: &'s str,
-}
-
-impl<'s> ImportSpec<'s> {
-    #[inline]
-    pub fn new(name: &'s str, bind: &'s str) -> Self {
-        ImportSpec { name, bind }
+    fn add(&mut self, binding: String) {
+        let call = format!("imports[\"{}\"]", &binding);
+        self.calls.push(call);
+        self.names.push(binding);
     }
 
-    #[inline]
-    pub fn same(name: &'s str) -> Self {
-        ImportSpec::new(name, name)
+    fn get_signature_params(&self) -> String {
+        self.names.join(", ")
+    }
+
+    fn get_call_params(&self) -> String {
+        self.calls.join(", ")
     }
 }
 
@@ -101,48 +65,6 @@ pub struct CjsModule<'s> {
     pub deps: FnvHashSet<Cow<'s, str>>,
 }
 
-pub type Result<T> = ::std::result::Result<T, Error>;
-
-#[derive(Debug)]
-pub struct Error {
-    pub kind: ErrorKind,
-    pub span: esparse::ast::SpanT<String, esparse::ast::Loc>,
-}
-
-#[derive(Debug)]
-pub enum ErrorKind {
-    Expected(&'static str),
-    ParseStrLitError(lex::ParseStrLitError),
-}
-
-impl From<skip::Error> for Error {
-    fn from(inner: skip::Error) -> Self {
-        Error {
-            kind: match inner.kind {
-                skip::ErrorKind::Expected(s) => ErrorKind::Expected(s),
-            },
-            span: inner.span,
-        }
-    }
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} at {}", self.kind, self.span,)
-    }
-}
-
-impl fmt::Display for ErrorKind {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            ErrorKind::Expected(s) => write!(f, "expected {}", s),
-            ErrorKind::ParseStrLitError(ref error) => {
-                write!(f, "invalid string literal: {}", error)
-            }
-        }
-    }
-}
-
 pub fn module_to_cjs<'f, 's>(
     lex: &mut lex::Lexer<'f, 's>,
     allow_require: bool,
@@ -151,7 +73,11 @@ pub fn module_to_cjs<'f, 's>(
     let mut deps = FnvHashSet::default();
     let mut imports = Vec::new();
     let mut exports = Vec::new();
-    // TODO source map lines won't match up when module string literal contains newlines
+
+    // TODO source map lines won't match up when module string literal contains
+    // newlines
+    // We only care about code about the code enough to collect imports, exports
+    // and optionally cjs requires
     loop {
         eat!(lex => tok { source.push_str(tok.ws_before) },
             Tt::Export => {
@@ -168,6 +94,7 @@ pub fn module_to_cjs<'f, 's>(
             },
             Tt::Id("require") if allow_require => {
                 let start_pos = tok.span.start;
+                // TODO wrap the `eat!` macro so we don't need all these `_ => {}` ?
                 eat!(lex,
                     Tt::Lparen => eat!(lex,
                         Tt::StrLitSgl(dep_source) |
@@ -200,6 +127,11 @@ pub fn module_to_cjs<'f, 's>(
         );
     }
 
+    // our definition of an es6 module is:
+    // if cjs is disabled, then it is a module
+    // if it contains any exports or imports it's a module
+    // TODO investigate if `export {}` counts as a module, and if that matters
+    // either way
     let is_module = !allow_require || !exports.is_empty() || !imports.is_empty();
     let mut source_prefix = String::new();
 
@@ -211,65 +143,69 @@ pub fn module_to_cjs<'f, 's>(
         .unwrap();
     }
 
-    let mut bind_names = vec![];
-    let mut bind_calls = vec![];
-
-    fn bind_call(bind: &str) -> String {
-        format!("imports[\"{}\"]", bind)
-    }
+    // Create an item to collect the import names for the main function signature
+    let mut import_bindings = ImportBindingNames::new();
 
     if !imports.is_empty() {
         write!(source_prefix, "var imports = (function() {{").unwrap();
-        for (i, import) in imports.iter().enumerate() {
+        for (module_id, import) in imports.iter().enumerate() {
             write!(
                 source_prefix,
                 "\n  const __module{} = require._esModule({})",
-                i, import.module_source
+                module_id, import.module_source
             )
             .unwrap();
         }
         write!(source_prefix, "\n  return Object.create(null, {{\n    [Symbol.toStringTag]: {{value: 'ModuleImports'}},").unwrap();
-        for (i, import) in imports.iter().enumerate() {
-            if let Some(bind) = import.default_bind {
+        for (module_id, import) in imports.iter().enumerate() {
+            if let Some(default_binding) = import.default_bind {
                 write!(
                     source_prefix,
                     "\n    {}: {{get() {{return __module{}.default}}, enumerable: true}},",
-                    bind, i,
+                    default_binding, module_id,
                 )
                 .unwrap();
-                bind_names.push(bind);
-                bind_calls.push(bind_call(bind));
+                import_bindings.add(default_binding.to_owned());
             }
             match import.binds {
                 Bindings::None => {}
-                Bindings::NameSpace(bind) => {
+                Bindings::NameSpace(wildcard_binding) => {
                     write!(
                         source_prefix,
                         "\n    {}: {{value: __module{}, enumerable: true}},",
-                        bind, i,
+                        wildcard_binding, module_id,
                     )
                     .unwrap();
-                    bind_names.push(bind);
-                    bind_calls.push(bind_call(bind));
+                    import_bindings.add(wildcard_binding.to_owned());
                 }
                 Bindings::Named(ref specs) => {
                     for spec in specs {
+                        let named_import_binding = spec.bind;
                         write!(
                             source_prefix,
                             "\n    {}: {{get() {{return __module{}.{}}}, enumerable: true}},",
-                            spec.bind, i, spec.name,
+                            named_import_binding, module_id, spec.name,
                         )
                         .unwrap();
-                        bind_names.push(spec.bind);
-                        bind_calls.push(bind_call(spec.bind));
+                        import_bindings.add(named_import_binding.to_owned());
                     }
                 }
             }
         }
+        // TODO make this not nasty. shouldn't closing braces be the automatic
+        // result of leaving the scope where the brace was opened?
+        // TODO do we need a macro for inserting javascript?
         write!(source_prefix, "\n  }})\n}}()); ").unwrap();
     }
 
-    write!(source_prefix, "; ~function({}) {{", bind_names.join(", ")).unwrap();
+    // TODO use `()` instead of the bitwise not, which is just being fancy for
+    // the sake of it
+    write!(
+        source_prefix,
+        "; ~function({}) {{",
+        import_bindings.get_signature_params()
+    )
+    .unwrap();
 
     if is_module {
         write!(source_prefix, "\n'use strict';\n").unwrap();
@@ -280,13 +216,13 @@ pub fn module_to_cjs<'f, 's>(
         let mut had_binds = false;
 
         write!(inner, "Object.defineProperties(exports, {{").unwrap();
-        for (i, export) in exports.iter().enumerate() {
+        for (export_id, export) in exports.iter().enumerate() {
             match *export {
-                Export::Default(bind) => {
+                Export::Default(default_binding) => {
                     write!(
                         inner,
                         "\n  default: {{get() {{return {}}}, enumerable: true}},",
-                        bind,
+                        default_binding,
                     )
                     .unwrap();
                 }
@@ -309,13 +245,15 @@ pub fn module_to_cjs<'f, 's>(
                 }
                 Export::NamedFrom(ref specs, name_source, _) => {
                     if !had_binds {
+                        // TODO use `()` instead of the bitwise not, which is
+                        // just being fancy for the sake of it
                         write!(source_prefix, "~function() {{\n").unwrap();
                         had_binds = true;
                     }
                     write!(
                         source_prefix,
                         "const __reexport{} = require._esModule({})\n",
-                        i, name_source
+                        export_id, name_source
                     )
                     .unwrap();
 
@@ -323,14 +261,16 @@ pub fn module_to_cjs<'f, 's>(
                         write!(
                             inner,
                             "\n  {}: {{get() {{return __reexport{}.{}}}, enumerable: true}},",
-                            spec.name, i, spec.bind,
+                            spec.name, export_id, spec.bind,
                         )
                         .unwrap();
                     }
                 }
             }
         }
+
         write!(source_prefix, "{}\n}});\n", inner).unwrap();
+
         if had_binds {
             write!(source_prefix, "}}();\n").unwrap();
         }
@@ -339,6 +279,7 @@ pub fn module_to_cjs<'f, 's>(
     for import in imports {
         deps.insert(import.module);
     }
+
     for export in exports {
         match export {
             Export::Default(_) => {}
@@ -348,14 +289,17 @@ pub fn module_to_cjs<'f, 's>(
             }
         }
     }
+
     Ok(CjsModule {
         source_prefix,
         source,
-        source_suffix: format!("}}({})", bind_calls.join(", ")),
+        source_suffix: format!("}}({})", import_bindings.get_call_params()),
         deps,
     })
 }
 
+// TODO investigate this for full esm compat
+// TODO address other TODO comments and code that's been commented out
 #[inline(always)]
 fn parse_export<'f, 's>(lex: &mut lex::Lexer<'f, 's>, source: &mut String) -> Result<Export<'s>> {
     eat!(lex => tok { source.push_str(tok.ws_before) },
