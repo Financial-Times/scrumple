@@ -1,4 +1,4 @@
-~function(global) {
+(function(global) {
   const Pax = {}
   Pax.baseRequire = typeof require !== "undefined" ? require : n => {
     throw new Error(`Could not resolve module name: ${n}`)
