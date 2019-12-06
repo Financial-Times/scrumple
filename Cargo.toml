@@ -4,8 +4,8 @@ version = "0.5.0"
 authors = ["Nathan", "chee", "Jake"]
 edition = "2018"
 
-description = "The fastest JavaScript bundler in the galaxy."
-repository = "https://github.com/nathan/pax"
+description = "A fast JavaScript bundler for Origami components"
+repository = "https://github.com/financial-times/oax"
 license = "MIT"
 readme = "./README.md"
 
