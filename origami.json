@@ -1,0 +1,18 @@
+{
+	"description": "A fast JavaScript bundler for Origami components.",
+	"origamiType": null,
+	"origamiVersion": 1,
+	"keywords": [
+		"rust",
+		"oat",
+		"build",
+		"bundle",
+		"js"
+	],
+	"support": "https://github.com/Financial-Times/oax/issues",
+	"supportStatus": "active",
+	"supportContact": {
+		"email": "origami.support@ft.com",
+		"slack": "financialtimes/origami-support"
+	}
+}
