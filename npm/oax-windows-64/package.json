@@ -8,5 +8,8 @@
     "oax": "oax"
   },
   "os" : [ "win32" ],
-  "cpu" : [ "x64" ]
+  "cpu" : [ "x64" ],
+  "scripts": {
+    "postinstall": "node ./postinstall.js"
+  }
 }
