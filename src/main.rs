@@ -351,7 +351,7 @@ Options:
         as require('<module>') references in the bundle.
 
     -b, --for-bower
-        Use bower.json instead of package.json
+        Use .bower.json instead of package.json
 
     -h, --help
         Print this message.
