@@ -1,3 +1,4 @@
+#[cfg(test)]
 mod test;
 
 use crate::input_options::InputOptions;

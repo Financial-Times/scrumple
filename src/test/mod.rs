@@ -33,16 +33,6 @@ fn test_count_lines() {
     assert_eq!(count_lines("these\nare\r\nlines"), 3);
 }
 
-#[test]
-fn test_reproducing() {
-    let entry_point_a = Path::new("examples/reproducing/a");
-    let entry_point_a = Path::new("examples/reproducing/b");
-    npm_install(entry_point.parent().unwrap());
-    let options = InputOptions::default();
-    let output = "/dev/null";
-    let map_output = SourceMapOutput::Inline;
-}
-
 use cfg_if::cfg_if;
 cfg_if! {
     if #[cfg(feature = "bench")] {
