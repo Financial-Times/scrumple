@@ -1,12 +1,6 @@
 use super::*;
 use crate::path_ext::*;
-use fnv::{FnvHashMap, FnvHashSet};
-use indoc::indoc;
 use matches::assert_matches;
-use serde_json;
-use std::io::{self, Write};
-use std::path::Path;
-use std::{fs, process};
 use walkdir::WalkDir;
 
 fn fixture_path() -> PathBuf {
