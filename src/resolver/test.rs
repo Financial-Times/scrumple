@@ -2135,6 +2135,11 @@ where
 }
 
 #[test]
+fn test_resolve_browser() {
+    test_browser_with(assert_resolves);
+}
+
+#[test]
 fn test_external() {
     fn fixture_path() -> PathBuf {
         let mut path = std::env::current_dir().unwrap();
