@@ -338,3 +338,132 @@ where
         deserializer.deserialize_any(SubstitutionVisitor(PhantomData))
     }
 }
+
+mod test {
+    use super::*;
+    use matches::assert_matches;
+
+    #[test]
+    fn test_deserialize_browser_subst() {
+        let parse = serde_json::from_str::<BrowserSubstitution<String>>;
+        assert_matches!(parse("null"), Err(_));
+        assert_matches!(parse("100"), Err(_));
+        assert_matches!(parse("[1, 2, 3]"), Err(_));
+        assert_matches!(parse("false"), Ok(BrowserSubstitution::Ignore));
+        assert_matches!(parse("true"), Err(_));
+        assert_eq!(
+            parse(r#""asdf""#).unwrap(),
+            BrowserSubstitution::Replace("asdf".to_owned())
+        );
+        assert_eq!(
+            parse(r#""""#).unwrap(),
+            BrowserSubstitution::Replace("".to_owned())
+        );
+    }
+
+    #[test]
+    fn test_deserialize_browser() {
+        let parse = serde_json::from_str::<BrowserSubstitutionMap>;
+        assert_matches!(parse(r#"null"#), Err(_));
+        assert_matches!(parse(r#""simple.browser.js""#), Err(_));
+        assert_eq!(parse(r#"{}"#).unwrap(), BrowserSubstitutionMap(map! {}));
+        assert_eq!(
+            parse(r#"{"mod": "dom"}"#).unwrap(),
+            BrowserSubstitutionMap(map! {
+                PathBuf::from("mod") => BrowserSubstitution::Replace(PathBuf::from("dom")),
+            })
+        );
+        assert_eq!(
+            parse(r#"{"./file.js": "./file.browser.js"}"#).unwrap(),
+            BrowserSubstitutionMap(map! {
+                PathBuf::from("./file.js") => BrowserSubstitution::Replace(PathBuf::from("./file.browser.js")),
+            })
+        );
+        assert_eq!(
+            parse(r#"{"ignore": false}"#).unwrap(),
+            BrowserSubstitutionMap(map! {
+                PathBuf::from("ignore") => BrowserSubstitution::Ignore,
+            })
+        );
+        assert_eq!(
+            parse(
+                r#"{
+        "ignore": false,
+        "mod": "dom",
+        "mod2file": "./modfile.js",
+        "mod2up": "../up.js",
+        "mod2dir": "./moddir",
+        "mod2abs": "/z/y/x",
+        "./fileignore.js": false,
+        "./file2mod.js": "mod",
+        "./file2file.js": "./file.js",
+        "./file2dir.js": "./dir",
+        "./file2up.js": "../up.js",
+        "./file2abs.js": "/x/y/z"
+    }"#
+            )
+            .unwrap(),
+            BrowserSubstitutionMap(map! {
+                PathBuf::from("ignore") => BrowserSubstitution::Ignore,
+                PathBuf::from("mod") => BrowserSubstitution::Replace(PathBuf::from("dom")),
+                PathBuf::from("mod2file") => BrowserSubstitution::Replace(PathBuf::from("./modfile.js")),
+                PathBuf::from("mod2up") => BrowserSubstitution::Replace(PathBuf::from("../up.js")),
+                PathBuf::from("mod2dir") => BrowserSubstitution::Replace(PathBuf::from("./moddir")),
+                PathBuf::from("mod2abs") => BrowserSubstitution::Replace(PathBuf::from("/z/y/x")),
+                PathBuf::from("./fileignore.js") => BrowserSubstitution::Ignore,
+                PathBuf::from("./file2mod.js") => BrowserSubstitution::Replace(PathBuf::from("mod")),
+                PathBuf::from("./file2file.js") => BrowserSubstitution::Replace(PathBuf::from("./file.js")),
+                PathBuf::from("./file2dir.js") => BrowserSubstitution::Replace(PathBuf::from("./dir")),
+                PathBuf::from("./file2up.js") => BrowserSubstitution::Replace(PathBuf::from("../up.js")),
+                PathBuf::from("./file2abs.js") => BrowserSubstitution::Replace(PathBuf::from("/x/y/z")),
+            })
+        );
+    }
+
+    #[test]
+    fn test_deserialize_package_info() {
+        let parse = serde_json::from_str::<PackageInfo>;
+        assert_matches!(parse("null"), Err(_));
+        assert_matches!(parse("100"), Err(_));
+        assert_matches!(parse("[1, 2, 3]"), Err(_));
+        assert_eq!(
+            parse(r#"{}"#).unwrap(),
+            PackageInfo {
+                main: PathBuf::from("./index"),
+                browser_substitutions: BrowserSubstitutionMap(map! {}),
+            }
+        );
+        assert_eq!(
+            parse(r#"{"browser": null}"#).unwrap(),
+            PackageInfo {
+                main: PathBuf::from("./index"),
+                browser_substitutions: BrowserSubstitutionMap(map! {}),
+            }
+        );
+        assert_eq!(
+            parse(r#"{"browser": "simple"}"#).unwrap(),
+            PackageInfo {
+                main: PathBuf::from("./index"),
+                browser_substitutions: BrowserSubstitutionMap(map! {
+                    PathBuf::from("./index") => BrowserSubstitution::Replace(PathBuf::from("./simple")),
+                }),
+            }
+        );
+        assert_eq!(
+            parse(r#"{"browser": {}}"#).unwrap(),
+            PackageInfo {
+                main: PathBuf::from("./index"),
+                browser_substitutions: BrowserSubstitutionMap(map! {}),
+            }
+        );
+        assert_eq!(
+            parse(r#"{"browser": {"mod": false}}"#).unwrap(),
+            PackageInfo {
+                main: PathBuf::from("./index"),
+                browser_substitutions: BrowserSubstitutionMap(map! {
+                    PathBuf::from("mod") => BrowserSubstitution::Ignore,
+                }),
+            }
+        );
+    }
+}
