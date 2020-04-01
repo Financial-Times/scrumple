@@ -1,6 +1,13 @@
 use super::*;
+use crate::input_options::PackageManager;
 use crate::path_ext::*;
+use fnv::{FnvHashMap, FnvHashSet};
+use indoc::indoc;
 use matches::assert_matches;
+use serde_json;
+use std::io::{self, Write};
+use std::path::Path;
+use std::{fs, process};
 use walkdir::WalkDir;
 
 fn fixture_path() -> PathBuf {
@@ -168,6 +175,12 @@ fn assert_resolves_with_options(
     to: Option<&str>,
     options: Option<&InputOptions>,
 ) {
+    fn fixture_path() -> PathBuf {
+        let mut path = std::env::current_dir().unwrap();
+        path.push("fixtures");
+        path
+    }
+
     let defaults = InputOptions::default();
     let options = match options {
         Some(options) => options,
@@ -2047,6 +2060,11 @@ where
 
 #[test]
 fn test_external() {
+    fn fixture_path() -> PathBuf {
+        let mut path = std::env::current_dir().unwrap();
+        path.push("fixtures");
+        path
+    }
     fn assert_resolves(context: &str, from: &str, to: Resolved, options: &InputOptions) {
         let base_path = fixture_path();
         let to = match to {
@@ -2150,6 +2168,12 @@ fn test_external() {
 
 #[test]
 fn test_resolve_consistency() {
+    fn fixture_path() -> PathBuf {
+        let mut path = std::env::current_dir().unwrap();
+        path.push("fixtures");
+        path
+    }
+
     if cfg!(windows) {
         return;
     }
