@@ -1,5 +1,4 @@
 use super::*;
-use crate::input_options::PackageManager;
 use crate::path_ext::*;
 use fnv::{FnvHashMap, FnvHashSet};
 use indoc::indoc;
