@@ -1,6 +1,6 @@
 {
 	"description": "A fast JavaScript bundler for Origami components.",
-	"origamiType": null,
+	"origamiType": "cli",
 	"origamiVersion": 1,
 	"keywords": [
 		"rust",
