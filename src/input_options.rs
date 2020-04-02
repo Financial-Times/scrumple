@@ -16,7 +16,7 @@ impl PackageManager {
 
     pub fn file(&self) -> &'static str {
         match self {
-            Self::Bower => ".bower.json",
+            Self::Bower => "bower.json",
             Self::Npm => "package.json",
         }
     }
