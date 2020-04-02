@@ -2011,6 +2011,61 @@ fn test_resolve_unicode() {
     test_resolve_unicode_with(assert_resolves);
 }
 
+#[test]
+fn test_resolve_bower() {
+    if cfg!(windows) {
+        return;
+    }
+    test_resolve_bower_with(assert_resolves);
+}
+
+fn test_resolve_bower_with<F>(mut assert_resolves: F)
+where
+    F: FnMut(&str, &str, Option<&str>),
+{
+    let ctx = "bower/hypothetical.js";
+    assert_resolves(
+        ctx,
+        "./js-and-sass-entries",
+        Some("bower/js-and-sass-entries/main.js"),
+    );
+    assert_resolves(
+        ctx,
+        "./js-and-sass-entries/main.js",
+        Some("bower/js-and-sass-entries/main.js"),
+    );
+    assert_resolves(
+        ctx,
+        "./sass-and-js-entries/main.js",
+        Some("bower/sass-and-js-entries/main.js"),
+    );
+    assert_resolves(
+        ctx,
+        "./sass-and-js-entries",
+        Some("bower/sass-and-js-entries/main.js"),
+    );
+    assert_resolves(
+        ctx,
+        "./single-js-array",
+        Some("bower/single-js-array/main.js"),
+    );
+    assert_resolves(
+        ctx,
+        "./single-js-array/main.js",
+        Some("bower/single-js-array/main.js"),
+    );
+    assert_resolves(
+        ctx,
+        "./single-js-entry",
+        Some("bower/single-js-entry/main.js"),
+    );
+    assert_resolves(
+        ctx,
+        "./single-js-entry/main.js",
+        Some("bower/single-js-entry/main.js"),
+    );
+}
+
 fn test_browser_with<F>(mut assert_resolves: F)
 where
     F: FnMut(&str, &str, Option<&str>),
@@ -2197,6 +2252,7 @@ fn test_resolve_consistency() {
         //
         test_resolve_unicode_with(&mut append);
         test_browser_with(&mut append);
+        test_resolve_bower_with(&mut append);
     }
 
     fn make_source(base: &Path, cases: &Cases) -> Vec<u8> {
