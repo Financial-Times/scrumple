@@ -2035,44 +2035,45 @@ where
     let ctx = "bower/hypothetical.js";
     assert_resolves(
         ctx,
-        "./js-and-sass-entries",
-        Some("bower/js-and-sass-entries/main.js"),
+        "single-js-array",
+        Some("bower/bower_components/single-js-array/main.js"),
     );
     assert_resolves(
         ctx,
-        "./js-and-sass-entries/main.js",
-        Some("bower/js-and-sass-entries/main.js"),
+        "single-js-array/main.js",
+        Some("bower/bower_components/single-js-array/main.js"),
     );
     assert_resolves(
         ctx,
-        "./sass-and-js-entries/main.js",
-        Some("bower/sass-and-js-entries/main.js"),
+        "single-js-entry",
+        Some("bower/bower_components/single-js-entry/main.js"),
     );
     assert_resolves(
         ctx,
-        "./sass-and-js-entries",
-        Some("bower/sass-and-js-entries/main.js"),
+        "single-js-entry/main.js",
+        Some("bower/bower_components/single-js-entry/main.js"),
     );
     assert_resolves(
         ctx,
-        "./single-js-array",
-        Some("bower/single-js-array/main.js"),
+        "js-and-sass-entries/main.js",
+        Some("bower/bower_components/js-and-sass-entries/main.js"),
     );
-    assert_resolves(
-        ctx,
-        "./single-js-array/main.js",
-        Some("bower/single-js-array/main.js"),
-    );
-    assert_resolves(
-        ctx,
-        "./single-js-entry",
-        Some("bower/single-js-entry/main.js"),
-    );
-    assert_resolves(
-        ctx,
-        "./single-js-entry/main.js",
-        Some("bower/single-js-entry/main.js"),
-    );
+
+    // assert_resolves(
+    //     ctx,
+    //     "js-and-sass-entries",
+    //     Some("bower/bower_components/js-and-sass-entries/main.js"),
+    // );
+    // assert_resolves(
+    //     ctx,
+    //     "sass-and-js-entries/main.js",
+    //     Some("bower/bower_components/sass-and-js-entries/main.js"),
+    // );
+    // assert_resolves(
+    //     ctx,
+    //     "./sass-and-js-entries",
+    //     Some("bower/bower_components/sass-and-js-entries/main.js"),
+    // );
 }
 
 fn test_browser_with<F>(mut assert_resolves: F)
