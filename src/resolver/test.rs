@@ -2059,21 +2059,21 @@ where
         Some("bower/bower_components/js-and-sass-entries/main.js"),
     );
 
-    // assert_resolves(
-    //     ctx,
-    //     "js-and-sass-entries",
-    //     Some("bower/bower_components/js-and-sass-entries/main.js"),
-    // );
-    // assert_resolves(
-    //     ctx,
-    //     "sass-and-js-entries/main.js",
-    //     Some("bower/bower_components/sass-and-js-entries/main.js"),
-    // );
-    // assert_resolves(
-    //     ctx,
-    //     "./sass-and-js-entries",
-    //     Some("bower/bower_components/sass-and-js-entries/main.js"),
-    // );
+    assert_resolves(
+        ctx,
+        "js-and-sass-entries",
+        Some("bower/bower_components/js-and-sass-entries/main.js"),
+    );
+    assert_resolves(
+        ctx,
+        "sass-and-js-entries/main.js",
+        Some("bower/bower_components/sass-and-js-entries/main.js"),
+    );
+    assert_resolves(
+        ctx,
+        "./sass-and-js-entries",
+        Some("bower/bower_components/sass-and-js-entries/main.js"),
+    );
 }
 
 fn test_browser_with<F>(mut assert_resolves: F)
