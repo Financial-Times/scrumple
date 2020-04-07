@@ -213,6 +213,15 @@ fn assert_resolves(context: &str, from: &str, to: Option<&str>) {
     assert_resolves_with_options(context, from, to, None);
 }
 
+fn assert_resolves_bower(context: &str, from: &str, to: Option<&str>) {
+    let external = FnvHashSet::default();
+    let input_options = InputOptions {
+        package_manager: PackageManager::Bower,
+        external,
+    };
+    assert_resolves_with_options(context, from, to, Some(&input_options));
+}
+
 fn test_resolve_with<F>(mut assert_resolves: F)
 where
     F: FnMut(&str, &str, Option<&str>),
@@ -2016,7 +2025,7 @@ fn test_resolve_bower() {
     if cfg!(windows) {
         return;
     }
-    test_resolve_bower_with(assert_resolves);
+    test_resolve_bower_with(assert_resolves_bower);
 }
 
 fn test_resolve_bower_with<F>(mut assert_resolves: F)
