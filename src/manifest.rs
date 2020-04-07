@@ -262,7 +262,7 @@ impl<'de> Deserialize<'de> for BrowserField {
     }
 }
 
-// The main might be an array or a string of arrays
+// The main might be a string or an array of strings
 fn from_main<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
 where
     for<'a> T: From<&'a str> + Deserialize<'de>,
