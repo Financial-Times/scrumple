@@ -60,13 +60,33 @@ const CORE_MODULES: &[&str] = &[
     "zlib",
 ];
 
+pub fn npm_install(dir: &Path) {
+    let node_modules = dir.join("node_modules");
+    if node_modules.is_dir() {
+        return;
+    }
+
+    let ok = process::Command::new("npm")
+        .arg("install")
+        .arg("--silent")
+        // .arg("--verbose")
+        .current_dir(dir)
+        .status()
+        .expect("failed to run `npm install`")
+        .success();
+    if !ok {
+        panic!("`npm install` did not exit successfully");
+    }
+}
+
 pub fn count_lines(source: &str) -> usize {
     // TODO non-ASCII line terminators?
     1 + memchr::Memchr::new(b'\n', source.as_bytes()).count()
 }
 
 pub fn to_quoted_json_string(s: &str) -> String {
-    // Serializing to a String only fails if the Serialize impl decides to fail, which the Serialize impl of `str` never does.
+    // Serializing to a String only fails if the Serialize impl decides to fail,
+    // which the Serialize impl of `str` never does.
     serde_json::to_string(s).unwrap()
 }
 
@@ -76,7 +96,7 @@ fn run() -> Result<(), CliError> {
     let mut input = None;
     let mut output = None;
     let mut map = None;
-    let mut package_manager = PackageManager::Npm;
+    let mut package_manager = PackageManager::default();
     let mut map_inline = false;
     let mut no_map = false;
     let mut watch = false;

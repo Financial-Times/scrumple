@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod test;
+
 use crate::input_options::InputOptions;
 use crate::manifest::{BrowserSubstitution, PackageCache, PackageInfo};
 use crate::path_ext::*;
