@@ -2065,7 +2065,7 @@ where
     );
     assert_resolves(
         ctx,
-        "./sass-and-js-entries",
+        "sass-and-js-entries",
         Some("bower/bower_components/sass-and-js-entries/main.js"),
     );
     assert_resolves(
