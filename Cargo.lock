@@ -301,7 +301,7 @@ dependencies = [
 
 [[package]]
 name = "oax"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "base64 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "cfg-if 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",

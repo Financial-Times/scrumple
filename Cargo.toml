@@ -1,6 +1,6 @@
 [package]
 name = "oax"
-version = "0.5.0"
+version = "0.5.1"
 authors = ["Nathan", "chee", "Jake"]
 edition = "2018"
 
