@@ -14,10 +14,11 @@ impl PackageManager {
         }
     }
 
-    pub fn file(&self) -> &'static str {
+    // the manifest files in order of preference:)
+    pub fn files(&self) -> Vec<&'static str> {
         match self {
-            Self::Bower => "bower.json",
-            Self::Npm => "package.json",
+            Self::Bower => vec![".bower.json", "bower.json"],
+            Self::Npm => vec!["package.json"],
         }
     }
 }
