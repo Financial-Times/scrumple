@@ -288,15 +288,17 @@ where
         where
             S: SeqAccess<'de>,
         {
-            while let Ok(item) = seq.next_element() {
+            let mut value: Option<T> = None;
+            while let Ok(item) = seq.next_element::<String>() {
                 if let Some(item) = item {
-                    let item: String = item;
                     if item.ends_with(".js") {
-                        return Ok(Some(T::from(&item)));
+                        value = Some(T::from(&item));
                     }
+                } else {
+                    break;
                 }
             }
-            Ok(None)
+            Ok(value)
         }
 
         visit_unconditionally!('de None, bool i64 i128 u64 u128 f64 bytes none some unit newtype_struct map enum);
