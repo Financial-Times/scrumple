@@ -2073,6 +2073,18 @@ where
         "js-and-sass-entries",
         Some("bower/bower_components/js-and-sass-entries/main.js"),
     );
+
+    assert_resolves(
+        "bower/bower_components/dependency-with-bower-dot-json/hypothetical.js",
+        "dependency",
+        Some("bower/bower_components/dependency-with-bower-dot-json/bower_components/dependency/main.js"),
+    );
+
+    assert_resolves(
+        "bower/bower_components/dependency-with-dot-bower-dot-json/hypothetical.js",
+        "dependency",
+        Some("bower/bower_components/dependency-with-dot-bower-dot-json/bower_components/dependency/main.js"),
+    );
 }
 
 fn test_browser_with<F>(mut assert_resolves: F)
