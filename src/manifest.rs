@@ -339,6 +339,7 @@ where
     }
 }
 
+#[cfg(test)]
 mod test {
     use super::*;
     use matches::assert_matches;
