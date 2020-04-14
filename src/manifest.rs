@@ -49,26 +49,27 @@ impl PackageCache {
         package_manager: crate::input_options::PackageManager,
     ) -> Result<Option<Rc<PackageInfo>>, CliError> {
         let mut pkgs = self.pkgs.borrow_mut();
-        let manifest_file_name = package_manager.file();
+        let manifest_file_names = package_manager.files();
         Ok(pkgs
             .entry(dir.clone())
             .or_insert_with(|| {
-                dir.push(manifest_file_name);
-                if let Ok(file) = fs::File::open(&dir) {
-                    let buf_reader = io::BufReader::new(file);
-                    if let Ok(mut info) = serde_json::from_reader::<_, PackageInfo>(buf_reader) {
-                        dir.pop();
-                        info.set_base(&dir);
-                        // eprintln!("info {} {:?}", dir.display(), info);
-                        Some(Rc::new(info))
+                for manifest_file_name in manifest_file_names {
+                    dir.push(manifest_file_name);
+                    if let Ok(file) = fs::File::open(&dir) {
+                        let buf_reader = io::BufReader::new(file);
+                        if let Ok(mut info) = serde_json::from_reader::<_, PackageInfo>(buf_reader)
+                        {
+                            dir.pop();
+                            info.set_base(&dir);
+                            return Some(Rc::new(info));
+                        } else {
+                            dir.pop();
+                        }
                     } else {
                         dir.pop();
-                        None
                     }
-                } else {
-                    dir.pop();
-                    None
                 }
+                None
             })
             .as_ref()
             .cloned())
