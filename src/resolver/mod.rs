@@ -165,7 +165,7 @@ impl Resolver {
         context: Option<&Path>,
         mut path: PathBuf,
         needs_dir: bool,
-        package: bool,
+        is_package: bool,
     ) -> Result<Option<Resolved>, CliError> {
         let package_info = self
             .cache
@@ -174,7 +174,11 @@ impl Resolver {
         macro_rules! check_path {
             ( $package_info:ident, $path:ident ) => {
                 // eprintln!("check {}", $path.display());
-                match Self::check_path($package_info.as_ref().map(|x| x.as_ref()), &$path) {
+                match Self::check_path(
+                    $package_info.as_ref().map(|x| x.as_ref()),
+                    &$path,
+                    is_package,
+                ) {
                     PathSubstitution::Normal => {
                         // eprintln!("resolve {}", $path.display());
                         return Ok(Some(Resolved::Normal($path)));
@@ -223,7 +227,7 @@ impl Resolver {
             path.set_file_name(&file_name);
         }
 
-        if !package {
+        if !is_package {
             if let Some(info) = self
                 .cache
                 .package_info(&mut path, self.input_options.package_manager)?
@@ -251,8 +255,19 @@ impl Resolver {
         Ok(None)
     }
 
-    fn check_path(package_info: Option<&PackageInfo>, path: &Path) -> PathSubstitution {
+    fn check_path(
+        package_info: Option<&PackageInfo>,
+        path: &Path,
+        is_package: bool,
+    ) -> PathSubstitution {
         if let Some(package_info) = package_info {
+            if is_package {
+                if let Some(BrowserSubstitution::Replace(ref browser_path)) =
+                    package_info.browser_substitutions.0.get(Path::new("."))
+                {
+                    return PathSubstitution::Replace(browser_path.clone());
+                }
+            }
             match package_info.browser_substitutions.0.get(path) {
                 Some(BrowserSubstitution::Ignore) => return PathSubstitution::Ignore,
                 Some(BrowserSubstitution::Replace(ref path)) => {
