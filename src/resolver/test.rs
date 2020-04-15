@@ -2091,11 +2091,17 @@ fn test_browser_with<F>(mut assert_resolves: F)
 where
     F: FnMut(&str, &str, Option<&str>),
 {
+    assert_resolves(
+        "browser/replace-dependency/hypothetical.js",
+        "dependency",
+        Some("browser/replace-dependency/browser-dependency.js"),
+    );
+
     let ctx = "browser/hypothetical.js";
     assert_resolves(
         ctx,
         "./alternate-main-rel",
-        Some("browser/alternate-main-rel/main-default.js"),
+        Some("browser/alternate-main-rel/main-browser.js"),
     );
     assert_resolves(
         ctx,
@@ -2105,32 +2111,32 @@ where
     assert_resolves(
         ctx,
         "./alternate-main-bare",
-        Some("browser/alternate-main-bare/main-default.js"),
-    );
-    assert_resolves(
-        ctx,
-        "./alternate-main-bare/main-default.js",
-        Some("browser/alternate-main-bare/main-default.js"),
-    );
-    assert_resolves(
-        ctx,
-        "./alternate-main-rel",
-        Some("browser/alternate-main-rel/main-browser.js"),
-    );
-    assert_resolves(
-        ctx,
-        "./alternate-main-rel/main-default.js",
-        Some("browser/alternate-main-rel/main-browser.js"),
-    );
-    assert_resolves(
-        ctx,
-        "./alternate-main-bare",
         Some("browser/alternate-main-bare/main-browser.js"),
     );
     assert_resolves(
         ctx,
         "./alternate-main-bare/main-default.js",
-        Some("browser/alternate-main-bare/main-browser.js"),
+        Some("browser/alternate-main-bare/main-default.js"),
+    );
+    assert_resolves(
+        ctx,
+        "./alternate-main-subdir-rel",
+        Some("browser/alternate-main-subdir-rel/browser/main.js"),
+    );
+    assert_resolves(
+        ctx,
+        "./alternate-main-subdir-rel/default/main.js",
+        Some("browser/alternate-main-subdir-rel/default/main.js"),
+    );
+    assert_resolves(
+        ctx,
+        "./alternate-main-subdir-bare",
+        Some("browser/alternate-main-subdir-bare/browser/main.js"),
+    );
+    assert_resolves(
+        ctx,
+        "./alternate-main-subdir-bare/default/main.js",
+        Some("browser/alternate-main-subdir-bare/default/main.js"),
     );
 }
 
