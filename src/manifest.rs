@@ -116,7 +116,7 @@ impl<'de> Deserialize<'de> for PackageInfo {
 
         let info = RawPackageInfo::deserialize(deserializer)?;
         let main = info.main.unwrap_or(PathBuf::from("./index"));
-        let browser_substitutions = info.browser.to_map(&main);
+        let browser_substitutions = info.browser.to_map();
         Ok(PackageInfo {
             main,
             browser_substitutions,
@@ -213,8 +213,9 @@ enum BrowserField {
     Main(PathBuf),
     Complex(BrowserSubstitutionMap),
 }
+
 impl BrowserField {
-    fn to_map(self, main: &Path) -> BrowserSubstitutionMap {
+    fn to_map(self) -> BrowserSubstitutionMap {
         match self {
             BrowserField::Empty => Default::default(),
             BrowserField::Main(mut to) => {
@@ -222,7 +223,7 @@ impl BrowserField {
                     to.prepend_resolving(Path::new("."));
                 }
                 BrowserSubstitutionMap(map! {
-                    main.to_owned() => BrowserSubstitution::Replace(to),
+                    PathBuf::from(".") => BrowserSubstitution::Replace(to),
                 })
             }
             BrowserField::Complex(map) => map,
@@ -449,7 +450,7 @@ mod test {
             PackageInfo {
                 main: PathBuf::from("./index"),
                 browser_substitutions: BrowserSubstitutionMap(map! {
-                    PathBuf::from("./index") => BrowserSubstitution::Replace(PathBuf::from("./simple")),
+                    PathBuf::from(".") => BrowserSubstitution::Replace(PathBuf::from("./simple")),
                 }),
             }
         );
