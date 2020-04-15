@@ -88,10 +88,7 @@ impl PackageInfo {
         let substs = mem::replace(&mut self.browser_substitutions, Default::default());
         self.browser_substitutions
             .0
-            .extend(substs.0.into_iter().map(|(mut from, mut to)| {
-                if from.is_explicitly_relative() {
-                    from.prepend_resolving(base);
-                }
+            .extend(substs.0.into_iter().map(|(from, mut to)| {
                 match to {
                     BrowserSubstitution::Ignore => {}
                     BrowserSubstitution::Replace(ref mut path) => {
