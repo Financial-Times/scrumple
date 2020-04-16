@@ -1,0 +1,54 @@
+name: Main
+
+on: push
+
+jobs:
+  codestyle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Rust
+        uses: hecrj/setup-rust-action@v1
+        with:
+          components: rustfmt
+      - uses: actions/checkout@v1
+      - run: cargo fmt --all -- --check
+
+  # lint:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Set up Rust
+  #       uses: hecrj/setup-rust-action@v1
+  #       with:
+  #         components: clippy
+  #     - uses: actions/checkout@v1
+  #     - run: cargo clippy --all-targets --all-features -- -D clippy::all
+
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Rust
+        uses: hecrj/setup-rust-action@v1
+      - uses: actions/checkout@master
+      - run: cargo check --all
+
+  test:
+    # needs: [codestyle, lint, compile]
+    needs: [codestyle, compile]
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macOS-latest, windows-latest]
+        rust: [stable, beta]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - name: Setup Rust
+      uses: hecrj/setup-rust-action@v1
+      with:
+        rust-version: ${{ matrix.rust }}
+    - uses: actions/setup-node@v1
+      with:
+        node-version: '10.x'
+    - name: Checkout
+      uses: actions/checkout@v1
+    - name: Test
+      run: cargo test --verbose
