@@ -1,60 +1,11 @@
-name: Main
+name: Publish to Cargo
 
-on: push
+on:
+  release:
+    types: [created]
 
 jobs:
-  codestyle:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Set up Rust
-        uses: hecrj/setup-rust-action@v1
-        with:
-          components: rustfmt
-      - uses: actions/checkout@v1
-      - run: cargo fmt --all -- --check
-
-  # lint:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Set up Rust
-  #       uses: hecrj/setup-rust-action@v1
-  #       with:
-  #         components: clippy
-  #     - uses: actions/checkout@v1
-  #     - run: cargo clippy --all-targets --all-features -- -D clippy::all
-
-  compile:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Set up Rust
-        uses: hecrj/setup-rust-action@v1
-      - uses: actions/checkout@master
-      - run: cargo check --all
-
-  test:
-    # needs: [codestyle, lint, compile]
-    needs: [codestyle, compile]
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macOS-latest, windows-latest]
-        rust: [stable, beta]
-    runs-on: ${{ matrix.os }}
-
-    steps:
-    - name: Setup Rust
-      uses: hecrj/setup-rust-action@v1
-      with:
-        rust-version: ${{ matrix.rust }}
-    - uses: actions/setup-node@v1
-      with:
-        node-version: '10.x'
-    - name: Checkout
-      uses: actions/checkout@v1
-    - name: Test
-      run: cargo test --verbose
-
   release:
-    needs: [test]
     strategy:
       matrix:
         os: [ubuntu-latest, macOS-latest, windows-latest]
@@ -103,7 +54,6 @@ jobs:
         cd -
     - name: Publish to GitHub
       uses: softprops/action-gh-release@v1
-      if: startsWith(github.ref, 'refs/tags/')
       with:
           files: 'oax*'
       env:
@@ -114,7 +64,6 @@ jobs:
         registry-url: 'https://registry.npmjs.org'
     - name: package sub-packages for npm
       shell: bash
-      if: startsWith(github.ref, 'refs/tags/')
       run: |
         cp target/${{ matrix.target }}/release/${{ matrix.bin }} npm/${{ matrix.npm-name }}/
         cd npm/${{ matrix.npm-name }}/
@@ -125,7 +74,6 @@ jobs:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
     - name: Publish meta-package to npm
       shell: bash
-      if: startsWith(github.ref, 'refs/tags/')
       run: |
         cd npm/
         ref='${{github.ref}}'
