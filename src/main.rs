@@ -292,7 +292,7 @@ fn run() -> Result<(), CliError> {
 }
 
 const APP_NAME: &str = env!("CARGO_PKG_NAME");
-const EXE_NAME: &str = "oax";
+const EXE_NAME: &str = "scrumple";
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn write_usage(f: &mut fmt::Formatter) -> fmt::Result {

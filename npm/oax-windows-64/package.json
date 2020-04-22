@@ -1,11 +1,11 @@
 {
-  "name": "oax-windows-64",
+  "name": "scrumple-windows-64",
   "version": "0.0.0",
-  "description": "Pre-compiled oax binary for 64-bit windows - fast bundler for JavaScript projects",
+  "description": "Pre-compiled scrumple binary for 64-bit windows - fast bundler for JavaScript projects",
   "license": "MIT",
-  "repository": "Financial-times/oax",
+  "repository": "Financial-times/scrumple",
   "bin": {
-    "oax": "oax"
+    "scrumple": "scrumple"
   },
   "os" : [ "win32" ],
   "cpu" : [ "x64" ],

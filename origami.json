@@ -9,7 +9,7 @@
 		"bundle",
 		"js"
 	],
-	"support": "https://github.com/Financial-Times/oax/issues",
+	"support": "https://github.com/Financial-Times/scrumple/issues",
 	"supportStatus": "active",
 	"supportContact": {
 		"email": "origami.support@ft.com",

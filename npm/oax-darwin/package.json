@@ -1,11 +1,11 @@
 {
-  "name": "oax-darwin",
+  "name": "scrumple-darwin",
   "version": "0.0.0",
-  "description": "Pre-compiled oax binary for darwin/osx - fast bundler for JavaScript projects",
+  "description": "Pre-compiled scrumple binary for darwin/osx - fast bundler for JavaScript projects",
   "license": "MIT",
-  "repository": "Financial-times/oax",
+  "repository": "Financial-times/scrumple",
   "bin": {
-    "oax": "oax"
+    "scrumple": "scrumple"
   },
   "os": [
     "darwin"

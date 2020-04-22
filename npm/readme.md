@@ -1,18 +1,18 @@
-# oax 
+# scrumple
 
-> Prebuilt oax binaries available via npm
+> Prebuilt scrumple binaries available via npm
 
 ## API
 
 ```
-$ npm install --save oax
+$ npm install --save scrumple
 ```
 
 ```js
 const execFile = require('child_process').execFile;
-const oax = require('oax');
+const scrumple = require('scrumple');
 
-execFile(oax, ['index.js'], (err, stdout) => {
+execFile(scrumple, ['index.js'], (err, stdout) => {
 	console.log(stdout);
 });
 ```

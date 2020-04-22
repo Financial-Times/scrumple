@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// This file exists as a placeholder so that `npm install` works for oax correctly.
+// This file exists as a placeholder so that `npm install` works for scrumple correctly.
 // npm will execute `chmod` on the paths declared in the `bin` property of the `package.json`
-// before it runs the `postinstall` script. That order of events does not work for `oax` as 
+// before it runs the `postinstall` script. That order of events does not work for `scrumple` as
 // it creates the file used as the binary during the `postinstall` event.
