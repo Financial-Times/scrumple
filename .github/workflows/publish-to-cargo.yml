@@ -13,21 +13,21 @@ jobs:
           - os: ubuntu-latest
             rust: stable
             target: x86_64-unknown-linux-gnu
-            bin: oax
-            name: oax-linux64.tar.gz
-            npm-name: oax-linux-64
+            bin: scrumple
+            name: scrumple-linux64.tar.gz
+            npm-name: scrumple-linux-64
           - os: macOS-latest
             rust: stable
             target: x86_64-apple-darwin
-            bin: oax
-            name: oax-osx.tar.gz
-            npm-name: oax-darwin
+            bin: scrumple
+            name: scrumple-osx.tar.gz
+            npm-name: scrumple-darwin
           - os: windows-latest
             rust: stable
             target: x86_64-pc-windows-msvc
-            bin: oax.exe
-            name: oax-windows64.zip
-            npm-name: oax-windows-64
+            bin: scrumple.exe
+            name: scrumple-windows64.zip
+            npm-name: scrumple-windows-64
     runs-on: ${{ matrix.os }}
     steps:
     - name: Setup Rust
@@ -55,7 +55,7 @@ jobs:
     - name: Publish to GitHub
       uses: softprops/action-gh-release@v1
       with:
-          files: 'oax*'
+          files: 'scrumple*'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - uses: actions/setup-node@v1
