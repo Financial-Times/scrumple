@@ -1,14 +1,14 @@
 {
-  "name": "oax",
+  "name": "scrumple",
   "version": "0.0.0",
-  "description": "oax - fast bundler for JavaScript projects",
+  "description": "scrumple - fast bundler for JavaScript projects",
   "license": "MIT",
-  "repository": "Financial-times/oax",
-  "bin": "oax",
+  "repository": "Financial-times/scrumple",
+  "bin": "scrumple",
   "optionalDependencies": {
-    "oax-darwin": "*",
-    "oax-linux-64": "*",
-    "oax-windows-64": "*"
+    "scrumple-darwin": "*",
+    "scrumple-linux-64": "*",
+    "scrumple-windows-64": "*"
   },
   "scripts": {
     "postinstall": "node ./postinstall.js"

@@ -1,11 +1,11 @@
 [package]
-name = "oax"
+name = "scrumple"
 version = "0.5.2"
 authors = ["Nathan", "chee", "Jake"]
 edition = "2018"
 
 description = "A fast JavaScript bundler for Origami components"
-repository = "https://github.com/financial-times/oax"
+repository = "https://github.com/financial-times/scrumple"
 license = "MIT"
 readme = "./README.md"
 
@@ -21,7 +21,7 @@ exclude = [
 ]
 
 [[bin]]
-name = "oax"
+name = "scrumple"
 path = "src/main.rs"
 
 [features]

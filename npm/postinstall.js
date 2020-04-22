@@ -3,18 +3,18 @@
 const fs = require('fs');
 const path = require('path');
 
-let pathToOaxBinary;
+let pathToScrumpleBinary;
 if (process.platform === "win32" && process.arch === "x64") {
-    pathToOaxBinary = require('oax-windows-64');
+    pathToScrumpleBinary = require('scrumple-windows-64');
 } else if (process.platform === "darwin") {
-    pathToOaxBinary = require('oax-darwin');
+    pathToScrumpleBinary = require('scrumple-darwin');
 } else if (process.platform === "linux" && process.arch === "x64") {
-    pathToOaxBinary = require('oax-linux-64');
+    pathToScrumpleBinary = require('scrumple-linux-64');
 } else {
-    throw new Error('oax does not have a precompiled binary for the platform/architecture you are using. Please contact Origami or open an issue on https://github.com/Financial-Times/oax/issues');
+    throw new Error('scrumple does not have a precompiled binary for the platform/architecture you are using. Please contact Origami or open an issue on https://github.com/Financial-Times/scrumple/issues');
 }
 
-const oaxDestination = './oax';
+const scrumpleDestination = './scrumple';
 
-fs.unlinkSync(oaxDestination);
-fs.symlinkSync(path.relative(__dirname, pathToOaxBinary), oaxDestination);
+fs.unlinkSync(scrumpleDestination);
+fs.symlinkSync(path.relative(__dirname, pathToScrumpleBinary), scrumpleDestination);
