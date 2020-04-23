@@ -1,5 +1,5 @@
 {
-  "name": "scrumple-linux-64",
+  "name": "@financial-times/scrumple-linux-64",
   "version": "1.0.0",
   "description": "Pre-compiled scrumple binary for 64-bit linux - fast bundler for JavaScript projects",
   "license": "MIT",

@@ -6,9 +6,9 @@
   "repository": "Financial-times/scrumple",
   "bin": "scrumple",
   "optionalDependencies": {
-    "scrumple-darwin": "*",
-    "scrumple-linux-64": "*",
-    "scrumple-windows-64": "*"
+    "@financial-times/scrumple-darwin": "*",
+    "@financial-times/scrumple-linux-64": "*",
+    "@financial-times/scrumple-windows-64": "*"
   },
   "scripts": {
     "postinstall": "node ./postinstall.js"
