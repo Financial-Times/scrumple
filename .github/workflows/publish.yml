@@ -1,4 +1,4 @@
-name: Publish to Cargo
+name: Publish package and subpackages to npm and github
 
 on:
   release:
