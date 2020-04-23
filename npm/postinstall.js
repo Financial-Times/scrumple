@@ -5,11 +5,11 @@ const path = require('path');
 
 let pathToScrumpleBinary;
 if (process.platform === "win32" && process.arch === "x64") {
-    pathToScrumpleBinary = require('scrumple-windows-64');
+    pathToScrumpleBinary = require('@financial-times/scrumple-windows-64');
 } else if (process.platform === "darwin") {
-    pathToScrumpleBinary = require('scrumple-darwin');
+    pathToScrumpleBinary = require('@financial-times/scrumple-darwin');
 } else if (process.platform === "linux" && process.arch === "x64") {
-    pathToScrumpleBinary = require('scrumple-linux-64');
+    pathToScrumpleBinary = require('@financial-times/scrumple-linux-64');
 } else {
     throw new Error('scrumple does not have a precompiled binary for the platform/architecture you are using. Please contact Origami or open an issue on https://github.com/Financial-Times/scrumple/issues');
 }

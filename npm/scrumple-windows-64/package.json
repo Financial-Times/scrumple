@@ -1,5 +1,5 @@
 {
-  "name": "scrumple-windows-64",
+  "name": "@financial-times/scrumple-windows-64",
   "version": "0.0.0",
   "description": "Pre-compiled scrumple binary for 64-bit windows - fast bundler for JavaScript projects",
   "license": "MIT",

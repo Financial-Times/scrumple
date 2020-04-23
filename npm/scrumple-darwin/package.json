@@ -1,5 +1,5 @@
 {
-  "name": "scrumple-darwin",
+  "name": "@financial-times/scrumple-darwin",
   "version": "0.0.0",
   "description": "Pre-compiled scrumple binary for darwin/osx - fast bundler for JavaScript projects",
   "license": "MIT",
