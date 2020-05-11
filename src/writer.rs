@@ -39,7 +39,7 @@ impl<'a, 'b> Writer<'a, 'b> {
         // TODO understand what this was
         // for (module, main) in self.mains {
         //     write!(w,
-        //         "\n  Pax.mains[{mod_path}] = {main_path}",
+        //         "\n  Scrumple.mains[{mod_path}] = {main_path}",
         //         mod_path = Self::js_path(&module),
         //         main_path = Self::js_path(&main),
         //     );
@@ -50,9 +50,8 @@ impl<'a, 'b> Writer<'a, 'b> {
             let deps = Self::stringify_deps(&info.deps, PathBuf::from(self.entry_point));
             let filename = Self::js_path(&file);
 
-            // TODO change `Pax.files` to... something Origami or generic
             write!(w,
-                "\n  Pax.files[{filename}] = {id}; {id}.deps = {deps}; {id}.filename = {filename}; function {id}(module, exports, require, __filename, __dirname, __import_meta) {{\n",
+                "\n  Scrumple.files[{filename}] = {id}; {id}.deps = {deps}; {id}.filename = {filename}; function {id}(module, exports, require, __filename, __dirname, __import_meta) {{\n",
                 filename = filename,
                 id = id,
                 deps = deps,
@@ -94,7 +93,7 @@ impl<'a, 'b> Writer<'a, 'b> {
         );
         // TODO put these lines of JS in functions to improve readability
         write!(w,
-            "\n  Pax.main = {main}; Pax.makeRequire(null)()\n  if (typeof module !== 'undefined') module.exports = Pax.main.module && Pax.main.module.exports\n",
+            "\n  Scrumple.main = {main}; Scrumple.makeRequire(null)()\n  if (typeof module !== 'undefined') module.exports = Scrumple.main.module && Scrumple.main.module.exports\n",
             main = main,
         )?;
         w.write_all(TAIL_JS.as_bytes())?;
@@ -275,7 +274,7 @@ impl<'a, 'b> Writer<'a, 'b> {
                         result.push(',');
                     }
                     result.push_str(&to_quoted_json_string(name));
-                    result.push_str(":Pax.ignored");
+                    result.push_str(":Scrumple.ignored");
                     comma = true;
                 }
                 Resolved::Normal(ref path) => {
