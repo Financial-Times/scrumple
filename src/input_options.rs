@@ -33,4 +33,5 @@ impl Default for PackageManager {
 pub struct InputOptions {
     pub package_manager: PackageManager,
     pub external: FnvHashSet<String>,
+    pub forced_npm_deps: FnvHashSet<String>,
 }
