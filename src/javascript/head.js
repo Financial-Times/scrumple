@@ -1,15 +1,15 @@
 (function() {
-  const Pax = {}
-  Pax.baseRequire = typeof require !== "undefined" ? require : n => {
+  const Scrumple = {}
+  Scrumple.baseRequire = typeof require !== "undefined" ? require : n => {
     throw new Error(`Could not resolve module name: ${n}`)
   }
-  Pax.ignored = () => {}
-  Pax.ignored.deps = {}
-  Pax.ignored.filename = ''
-  Pax.modules = {}
-  Pax.files = {}
-  Pax.mains = {}
-  Pax.resolve = (base, then) => {
+  Scrumple.ignored = () => {}
+  Scrumple.ignored.deps = {}
+  Scrumple.ignored.filename = ''
+  Scrumple.modules = {}
+  Scrumple.files = {}
+  Scrumple.mains = {}
+  Scrumple.resolve = (base, then) => {
     base = base.split('/')
     base.shift()
     for (const p of then.split('/')) {
@@ -18,7 +18,7 @@
     }
     return '/' + base.join('/')
   }
-  Pax.Module = function Module(filename, parent) {
+  Scrumple.Module = function Module(filename, parent) {
     this.filename = filename
     this.id = filename
     this.loaded = false
@@ -26,7 +26,7 @@
     this.children = []
     this.exports = {}
   }
-  Pax.makeRequire = self => {
+  Scrumple.makeRequire = self => {
     const require = m => require._module(m).exports
     require._deps = {}
     require.main = self
@@ -38,16 +38,16 @@
       }
     }
     require._module = m => {
-      let fn = self ? require._deps[m] : Pax.main
+      let fn = self ? require._deps[m] : Scrumple.main
       if (fn == null) {
-        const module = {exports: Pax.baseRequire(m)}
+        const module = {exports: Scrumple.baseRequire(m)}
         require._deps[m] = {module: module}
         return module
       }
       if (fn.module) return fn.module
-      const module = new Pax.Module(fn.filename, self)
+      const module = new Scrumple.Module(fn.filename, self)
       fn.module = module
-      module.require = Pax.makeRequire(module)
+      module.require = Scrumple.makeRequire(module)
       module.require._deps = fn.deps
       module.require.main = self ? self.require.main : module
       if (self) self.children.push(module)
