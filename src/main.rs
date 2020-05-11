@@ -90,6 +90,81 @@ pub fn to_quoted_json_string(s: &str) -> String {
     serde_json::to_string(s).unwrap()
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DependencyManifest {
+    dependencies: Option<FnvHashMap<String, String>>,
+    dev_dependencies: Option<FnvHashMap<String, String>>,
+}
+
+fn find_node_module(path: &PathBuf, name: &str) -> Option<PathBuf> {
+    let mut nm = path.clone();
+    loop {
+        nm.push("node_modules");
+        nm.push(name);
+        if nm.exists() {
+            return Some(nm);
+        }
+        nm.pop();
+        nm.pop();
+        if !nm.pop() {
+            return None;
+        }
+    }
+}
+
+fn recurse_npm_deps(root: &PathBuf, mut names: &mut FnvHashSet<String>) {
+    let mut pj_path = root.clone();
+    pj_path.push("package.json");
+
+    let pj_file = std::fs::File::open(&pj_path).unwrap();
+    let pj: DependencyManifest = serde_json::from_reader(pj_file).unwrap();
+
+    match &pj.dependencies {
+        Some(deps) => {
+            for key in deps.keys() {
+                &names.insert(key.to_owned());
+                let dep_path = find_node_module(root, &key).unwrap();
+                recurse_npm_deps(&dep_path, &mut names);
+            }
+        }
+        None => {}
+    }
+}
+
+pub fn gather_npm_dev_deps(input: &Option<String>) -> FnvHashSet<String> {
+    let mut pj_path = PathBuf::from(input.as_ref().unwrap());
+    let mut dev_deps_and_their_deps = FnvHashSet::default();
+
+    loop {
+        pj_path.push("package.json");
+        if pj_path.exists() {
+            break;
+        }
+        pj_path.pop();
+        if !pj_path.pop() {
+            break;
+        }
+    }
+
+    let pj_file = std::fs::File::open(&pj_path).unwrap();
+    let pj: DependencyManifest = serde_json::from_reader(pj_file).unwrap();
+    match &pj.dev_dependencies {
+        Some(deps) => {
+            for key in deps.keys() {
+                &dev_deps_and_their_deps.insert(key.to_owned());
+                let mut dep_root = (&pj_path).clone();
+                dep_root.pop();
+                dep_root.push("node_modules");
+                dep_root.push(key);
+                recurse_npm_deps(&dep_root, &mut dev_deps_and_their_deps);
+            }
+        }
+        None => {}
+    }
+    dev_deps_and_their_deps
+}
+
 fn run() -> Result<(), CliError> {
     let entry_inst = time::Instant::now();
 
