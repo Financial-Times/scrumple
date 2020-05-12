@@ -33,14 +33,26 @@ fn test_resolve_path_or_module() {
         // resolves with an empty cache...
         assert_eq!(
             resolver
-                .resolve_path_or_module(None, from_path.clone(), false, false)
+                .resolve_path_or_module(
+                    None,
+                    from_path.clone(),
+                    false,
+                    false,
+                    InputOptions::default().package_manager
+                )
                 .unwrap(),
             expected
         );
         // ...and with everything cached
         assert_eq!(
             resolver
-                .resolve_path_or_module(None, from_path, false, false)
+                .resolve_path_or_module(
+                    None,
+                    from_path,
+                    false,
+                    false,
+                    InputOptions::default().package_manager
+                )
                 .unwrap(),
             expected
         );
@@ -218,6 +230,7 @@ fn assert_resolves_bower(context: &str, from: &str, to: Option<&str>) {
     let input_options = InputOptions {
         package_manager: PackageManager::Bower,
         external,
+        forced_npm_deps: FnvHashSet::default(),
     };
     assert_resolves_with_options(context, from, to, Some(&input_options));
 }
@@ -2176,10 +2189,12 @@ fn test_external() {
         external: vec!["external".to_owned(), "external-only-module".to_owned()]
             .into_iter()
             .collect(),
+        forced_npm_deps: FnvHashSet::default(),
     };
     let non = InputOptions {
         package_manager: PackageManager::Npm,
         external: Default::default(),
+        forced_npm_deps: FnvHashSet::default(),
     };
 
     let ctx = "resolve/hypothetical.js";

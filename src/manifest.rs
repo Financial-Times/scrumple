@@ -451,6 +451,7 @@ mod test {
                 main: PathBuf::from("./index"),
                 browser_substitutions: BrowserSubstitutionMap(map! {
                     PathBuf::from(".") => BrowserSubstitution::Replace(PathBuf::from("./simple")),
+                    PathBuf::from("./index") => BrowserSubstitution::Replace(PathBuf::from("./simple")),
                 }),
             }
         );
