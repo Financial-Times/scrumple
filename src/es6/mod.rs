@@ -161,7 +161,7 @@ pub fn module_to_cjs<'f, 's>(
             if let Some(default_binding) = import.default_bind {
                 write!(
                     source_prefix,
-                    "\n    {}: {{get() {{return __module{}.default}}, enumerable: true}},",
+                    "\n    {}: {{get() {{return __module{}.default}}, enumerable: true, configurable: true}},",
                     default_binding, module_id,
                 )
                 .unwrap();
@@ -172,7 +172,7 @@ pub fn module_to_cjs<'f, 's>(
                 Bindings::NameSpace(wildcard_binding) => {
                     write!(
                         source_prefix,
-                        "\n    {}: {{value: __module{}, enumerable: true}},",
+                        "\n    {}: {{value: __module{}, enumerable: true, configurable: true}},",
                         wildcard_binding, module_id,
                     )
                     .unwrap();
@@ -183,7 +183,7 @@ pub fn module_to_cjs<'f, 's>(
                         let named_import_binding = spec.bind;
                         write!(
                             source_prefix,
-                            "\n    {}: {{get() {{return __module{}.{}}}, enumerable: true}},",
+                            "\n    {}: {{get() {{return __module{}.{}}}, enumerable: true, configurable: true}},",
                             named_import_binding, module_id, spec.name,
                         )
                         .unwrap();
@@ -221,7 +221,7 @@ pub fn module_to_cjs<'f, 's>(
                 Export::Default(default_binding) => {
                     write!(
                         inner,
-                        "\n  default: {{get() {{return {}}}, enumerable: true}},",
+                        "\n  default: {{get() {{return {}}}, enumerable: true, configurable: true}},",
                         default_binding,
                     )
                     .unwrap();
@@ -230,7 +230,7 @@ pub fn module_to_cjs<'f, 's>(
                     for spec in specs {
                         write!(
                             inner,
-                            "\n  {}: {{get() {{return {}}}, enumerable: true}},",
+                            "\n  {}: {{get() {{return {}}}, enumerable: true, configurable: true}},",
                             spec.name, spec.bind,
                         )
                         .unwrap();
@@ -260,7 +260,7 @@ pub fn module_to_cjs<'f, 's>(
                     for spec in specs {
                         write!(
                             inner,
-                            "\n  {}: {{get() {{return __reexport{}.{}}}, enumerable: true}},",
+                            "\n  {}: {{get() {{return __reexport{}.{}}}, enumerable: true, configurable: true}},",
                             spec.name, export_id, spec.bind,
                         )
                         .unwrap();
