@@ -416,7 +416,7 @@ dependencies = [
 
 [[package]]
 name = "scrumple"
-version = "1.0.0"
+version = "1.2.1"
 dependencies = [
  "base64 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "cfg-if 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
