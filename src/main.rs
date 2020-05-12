@@ -104,11 +104,19 @@ fn find_node_module(path: &PathBuf, name: &str) -> Option<PathBuf> {
     loop {
         nm.push("node_modules");
         nm.push(name);
+
+        // One pop per folder
+        let mut pops = 1 + name.split("/").count();
+
         if nm.exists() {
             return Some(nm);
         }
-        nm.pop();
-        nm.pop();
+
+        while pops > 0 {
+            nm.pop();
+            pops -= 1
+        }
+
         if !nm.pop() {
             return None;
         }
