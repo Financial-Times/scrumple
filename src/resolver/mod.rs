@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use crate::input_options::InputOptions;
+use crate::input_options::{InputOptions, PackageManager};
 use crate::manifest::{BrowserSubstitution, PackageCache, PackageInfo};
 use crate::path_ext::*;
 use crate::CliError;
@@ -59,10 +59,16 @@ impl Resolver {
         let path = Path::new(name);
         dir.append_resolving(path);
         let needs_dir = Self::needs_dir(name, path);
-        self.resolve_path_or_module(None, dir, needs_dir, false)?
-            .ok_or_else(|| CliError::MainNotFound {
-                name: name.to_owned(),
-            })
+        self.resolve_path_or_module(
+            None,
+            dir,
+            needs_dir,
+            false,
+            self.input_options.package_manager,
+        )?
+        .ok_or_else(|| CliError::MainNotFound {
+            name: name.to_owned(),
+        })
     }
 
     pub fn resolve(&self, context: &Path, name: &str) -> Result<Resolved, CliError> {
@@ -72,11 +78,29 @@ impl Resolver {
             });
         }
 
+        let package_name = if name.contains("/") {
+            name.split("/").next().unwrap()
+        } else {
+            name
+        };
+
+        let package_manager = if self.input_options.forced_npm_deps.contains(package_name) {
+            PackageManager::Npm
+        } else {
+            self.input_options.package_manager
+        };
+
         let path = Path::new(name);
         let needs_dir = Self::needs_dir(name, path);
         if path.is_absolute() {
             Ok(self
-                .resolve_path_or_module(Some(context), path.to_owned(), needs_dir, false)?
+                .resolve_path_or_module(
+                    Some(context),
+                    path.to_owned(),
+                    needs_dir,
+                    false,
+                    package_manager,
+                )?
                 .ok_or_else(|| CliError::ModuleNotFound {
                     context: context.to_owned(),
                     name: name.to_owned(),
@@ -86,8 +110,13 @@ impl Resolver {
             let did_pop = dir.pop(); // to directory
             debug_assert!(did_pop);
             dir.append_resolving(path);
+            let package_manager = if self.input_options.forced_npm_deps.contains(package_name) {
+                PackageManager::Npm
+            } else {
+                self.input_options.package_manager
+            };
             Ok(self
-                .resolve_path_or_module(Some(context), dir, needs_dir, false)?
+                .resolve_path_or_module(Some(context), dir, needs_dir, false, package_manager)?
                 .ok_or_else(|| CliError::ModuleNotFound {
                     context: context.to_owned(),
                     name: name.to_owned(),
@@ -104,7 +133,7 @@ impl Resolver {
                 ModuleSubstitution::Normal => {}
             }
 
-            let component_dir = self.input_options.package_manager.dir();
+            let component_dir = package_manager.dir();
 
             let mut suffix = PathBuf::from(component_dir);
             for part in path.components() {
@@ -118,9 +147,13 @@ impl Resolver {
                     _ => {}
                 }
                 let new_path = dir.join(&suffix);
-                if let Some(result) =
-                    self.resolve_path_or_module(Some(context), new_path, needs_dir, false)?
-                {
+                if let Some(result) = self.resolve_path_or_module(
+                    Some(context),
+                    new_path,
+                    needs_dir,
+                    false,
+                    package_manager,
+                )? {
                     return Ok(result);
                 }
             }
@@ -142,9 +175,14 @@ impl Resolver {
             return Ok(ModuleSubstitution::External);
         }
         if let Some(p) = context.parent() {
+            let package_manager = if self.input_options.forced_npm_deps.contains(module_name) {
+                PackageManager::Npm
+            } else {
+                self.input_options.package_manager
+            };
             if let Some(info) = self
                 .cache
-                .nearest_package_info(p.to_owned(), self.input_options.package_manager)?
+                .nearest_package_info(p.to_owned(), package_manager)?
             {
                 match info.browser_substitutions.0.get(Path::new(module_name)) {
                     Some(&BrowserSubstitution::Ignore) => return Ok(ModuleSubstitution::Ignore),
@@ -166,10 +204,11 @@ impl Resolver {
         mut path: PathBuf,
         needs_dir: bool,
         is_package: bool,
+        package_manager: PackageManager,
     ) -> Result<Option<Resolved>, CliError> {
         let package_info = self
             .cache
-            .nearest_package_info(path.clone(), self.input_options.package_manager)?;
+            .nearest_package_info(path.clone(), package_manager)?;
 
         macro_rules! check_path {
             ( $package_info:ident, $path:ident ) => {
@@ -228,12 +267,9 @@ impl Resolver {
         }
 
         if !is_package {
-            if let Some(info) = self
-                .cache
-                .package_info(&mut path, self.input_options.package_manager)?
-            {
+            if let Some(info) = self.cache.package_info(&mut path, package_manager)? {
                 path.replace_with(&info.main);
-                return self.resolve_path_or_module(context, path, false, true);
+                return self.resolve_path_or_module(context, path, false, true, package_manager);
             }
         }
 
@@ -250,7 +286,7 @@ impl Resolver {
         // <path>/index.json
         path.push("index.json");
         check_path!(package_info, path);
-        // path.pop();
+        // NO path.pop();
 
         Ok(None)
     }
