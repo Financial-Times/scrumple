@@ -1,10 +1,12 @@
 #![cfg_attr(all(test, feature = "bench"), feature(test))]
 
 use esparse::lex::{self};
+use fnv::FnvHashMap;
 use fnv::FnvHashSet;
 use lazy_static::lazy_static;
 use notify::Watcher;
 use regex::Regex;
+use serde::Deserialize;
 use std::any::Any;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
@@ -177,6 +179,7 @@ fn run() -> Result<(), CliError> {
     let mut watch = false;
     let mut quiet_watch = false;
     let mut external = FnvHashSet::default();
+    let mut forced_npm_deps = FnvHashSet::default();
 
     // TODO replace this arg parser
     let mut iter = opts::args();
@@ -239,6 +242,9 @@ fn run() -> Result<(), CliError> {
                         .ok_or_else(|| CliError::MissingOptionValue(opt))?,
                 )
             }
+            "-N" | "--allow-npm-dev-deps" => {
+                forced_npm_deps = gather_npm_dev_deps(&input);
+            }
             "-o" | "--output" => {
                 if output.is_some() {
                     return Err(CliError::DuplicateOption(opt));
@@ -284,6 +290,7 @@ fn run() -> Result<(), CliError> {
     let input_options = InputOptions {
         package_manager,
         external,
+        forced_npm_deps,
     };
 
     let entry_point = match Resolver::new(input_options.clone()).resolve_main(input_dir, &input)? {
@@ -448,6 +455,11 @@ Options:
     -b, --for-bower
         Use bower.json instead of package.json
 
+   -N, --allow-npm-dev-deps <module1,module2,...> When using --for-bower, this
+        forces packages in the project's package.json#devDependencies to be
+        resolved through npm. This is is for creating testing bundles that use
+        npm-only dependencies
+
     -h, --help
         Print this message.
 
@@ -468,7 +480,6 @@ pub enum CliError {
     UnknownOption(String),
     UnexpectedArg(String),
     BadUsage(&'static str),
-
     RequireRoot {
         context: Option<PathBuf>,
         path: PathBuf,
@@ -483,12 +494,10 @@ pub enum CliError {
     MainNotFound {
         name: String,
     },
-
     InvalidUtf8 {
         context: PathBuf,
         err: string::FromUtf8Error,
     },
-
     Io(io::Error),
     Json(serde_json::Error),
     Notify(notify::Error),
