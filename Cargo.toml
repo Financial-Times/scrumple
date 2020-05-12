@@ -1,6 +1,6 @@
 [package]
 name = "scrumple"
-version = "1.0.0"
+version = "1.2.1"
 authors = ["Nathan", "chee", "Jake"]
 edition = "2018"
 
@@ -9,7 +9,7 @@ repository = "https://github.com/financial-times/scrumple"
 license = "MIT"
 readme = "./README.md"
 
-keywords = ["js", "javascript", "es", "ecmascript", "bundler", "origami"]
+keywords = ["javascript", "ecmascript", "bundler", "origami"]
 categories = ["development-tools", "command-line-utilities", "web-programming"]
 
 autobins = true
