@@ -58,6 +58,11 @@ Options:
     -b, --for-bower
         Use bower.json instead of package.json
 
+    -N, --allow-npm-dev-deps
+        When using --for-bower, this forces packages in the project's
+        package.json#devDependencies to be resolved through npm. This is is for
+        creating testing bundles that use npm-only dependencies
+
     -h, --help
         Print this message.
 
