@@ -431,26 +431,6 @@ Options:
         Don't emit a bell character for errors that occur while watching.
         Implies --watch.
 
-    -e, --es-syntax
-        Support .mjs files with ECMAScript module syntax:
-
-            import itt from 'itt'
-            export const greeting = 'Hello, world!'
-
-        Instead of CommonJS require syntax:
-
-            const itt = require('itt')
-            exports.greeting = 'Hello, world!'
-
-        .mjs (ESM) files can import .js (CJS) files, in which case the
-        namespace object has a single `default` binding which reflects the
-        value of `module.exports`. CJS files can require ESM files, in which
-        case the resultant object is the namespace object.
-
-    -E, --es-syntax-everywhere
-        Implies --es-syntax. Allow ECMAScript module syntax in .js files.
-        CJS-style `require()` calls are also allowed.
-
     -x, --external <module1,module2,...>
         Don't resolve or include modules named <module1>, <module2>, etc.;
         leave them as require('<module>') references in the bundle. Specifying
