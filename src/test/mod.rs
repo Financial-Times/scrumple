@@ -5,7 +5,7 @@
 extern crate test;
 
 use super::*;
-use fnv::FnvHashMap;
+use fnv::{FnvHashMap, FnvHashSet};
 use indoc::indoc;
 use input_options::*;
 use manifest::{BrowserSubstitution, BrowserSubstitutionMap, PackageInfo};
@@ -31,6 +31,40 @@ fn test_count_lines() {
     assert_eq!(count_lines("this is a line\r\n"), 2);
     assert_eq!(count_lines("\r\nthis is a line"), 2);
     assert_eq!(count_lines("these\nare\r\nlines"), 3);
+}
+
+#[test]
+fn test_gather_npm_dev_deps_gets_all_dependencies() {
+    let mut expected = FnvHashSet::<String>::default();
+    expected.insert("yay".to_owned());
+    expected.insert("non-optional".to_owned());
+    expected.insert("optional".to_owned());
+    let found =
+        gather_npm_dev_deps(&"examples/npm-dev-dep-with-missing-optional-deps/index.js".to_owned())
+            .unwrap();
+    assert_eq!(expected, found);
+}
+
+#[test]
+fn test_gather_npm_dev_deps_doesnt_fail_on_missing_optionals() {
+    assert!(
+        gather_npm_dev_deps(
+            &"examples/npm-dev-dep-with-missing-optional-deps/index.js".to_owned(),
+        )
+        .is_ok(),
+        "failed, tried to analyse a missing optional dependency. should have ignored it",
+    );
+}
+
+#[test]
+fn test_gather_npm_dev_deps_fails_on_missing_required_deps() {
+    assert!(
+        gather_npm_dev_deps(
+            &"examples/npm-dev-dep-with-missing-required-deps/index.js".to_owned(),
+        )
+        .is_err(),
+        "skipped a required (non-optionalDependencies) dependency",
+    );
 }
 
 use cfg_if::cfg_if;
