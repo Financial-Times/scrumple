@@ -34,15 +34,33 @@ fn test_count_lines() {
 }
 
 #[test]
-fn test_gather_npm_dev_deps_gets_all_dependencies() {
+fn test_gather_npm_dev_deps_finds_complicated_deps() {
     let mut expected = FnvHashSet::<String>::default();
-    expected.insert("yay".to_owned());
-    expected.insert("non-optional".to_owned());
-    expected.insert("optional".to_owned());
+    let names = [
+        "@with-org-name/nested",
+        "optional",
+        "non-optional",
+        "yay",
+        "mutual-a",
+        "self",
+        "circular",
+        "@with-org-name/root",
+        "mutual-b",
+    ];
+    for package in names.iter() {
+        expected.insert(package.to_string());
+    }
     let found =
-        gather_npm_dev_deps(&"examples/npm-dev-dep-with-missing-optional-deps/index.js".to_owned())
+        gather_npm_dev_deps(&"examples/npm-dev-dep-with-complicated-deps/index.js".to_owned())
+            .unwrap();
+    let found_deep_entry =
+        gather_npm_dev_deps(&"examples/npm-dev-dep-with-complicated-deps/deep/entry.js".to_owned())
             .unwrap();
     assert_eq!(expected, found);
+    assert_eq!(
+        expected, found_deep_entry,
+        "didn't go up looking for the nearest package.json"
+    );
 }
 
 #[test]
