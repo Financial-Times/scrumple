@@ -1,6 +1,6 @@
 [package]
 name = "scrumple"
-version = "1.2.3"
+version = "1.2.5"
 authors = ["Nathan", "chee", "Jake"]
 edition = "2018"
 
