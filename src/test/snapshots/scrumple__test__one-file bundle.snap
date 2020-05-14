@@ -1,0 +1,80 @@
+---
+source: src/test/mod.rs
+expression: "std::fs::read_to_string(\"examples/one-file/bumble.js\").unwrap()"
+---
+(function() {
+  const Scrumple = {}
+  Scrumple.baseRequire = typeof require !== "undefined" ? require : n => {
+    throw new Error(`Could not resolve module name: ${n}`)
+  }
+  Scrumple.ignored = () => {}
+  Scrumple.ignored.deps = {}
+  Scrumple.ignored.filename = ''
+  Scrumple.modules = {}
+  Scrumple.files = {}
+  Scrumple.mains = {}
+  Scrumple.resolve = (base, then) => {
+    base = base.split('/')
+    base.shift()
+    for (const p of then.split('/')) {
+      if (p === '..') base.pop()
+      else if (p !== '.') base.push(p)
+    }
+    return '/' + base.join('/')
+  }
+  Scrumple.Module = function Module(filename, parent) {
+    this.filename = filename
+    this.id = filename
+    this.loaded = false
+    this.parent = parent
+    this.children = []
+    this.exports = {}
+  }
+  Scrumple.makeRequire = self => {
+    const require = m => require._module(m).exports
+    require._deps = {}
+    require.main = self
+
+    require._esModule = m => {
+      const mod = require._module(m)
+      return mod.exports.__esModule ? mod.exports : {
+        get default() {return mod.exports},
+      }
+    }
+    require._module = m => {
+      let fn = self ? require._deps[m] : Scrumple.main
+      if (fn == null) {
+        const module = {exports: Scrumple.baseRequire(m)}
+        require._deps[m] = {module: module}
+        return module
+      }
+      if (fn.module) return fn.module
+      const module = new Scrumple.Module(fn.filename, self)
+      fn.module = module
+      module.require = Scrumple.makeRequire(module)
+      module.require._deps = fn.deps
+      module.require.main = self ? self.require.main : module
+      if (self) self.children.push(module)
+      fn(module, module.exports, module.require, fn.filename, fn.filename.split('/').slice(0, -1).join('/'), {url: 'file://' + (fn.filename.charAt(0) === '/' ? '' : '/') + fn.filename})
+      module.loaded = true
+      return module
+    }
+    return require
+  }
+
+  Scrumple.files["index.js"] = file_index$2ejs; file_index$2ejs.deps = {}; file_index$2ejs.filename = "index.js"; function file_index$2ejs(module, exports, require, __filename, __dirname, __import_meta) {
+Object.defineProperty(exports, '__esModule', {value: true})
+; ~function() {
+'use strict';
+Object.defineProperties(exports, {
+  default: {get() {return __default}, enumerable: true, configurable: true},
+  named: {get() {return named}, enumerable: true, configurable: true},
+});
+
+ const __default =  {}
+ let named = "named"
+}()}
+  Scrumple.main = file_index$2ejs; Scrumple.makeRequire(null)()
+  if (typeof module !== 'undefined') module.exports = Scrumple.main.module && Scrumple.main.module.exports
+})()
+
