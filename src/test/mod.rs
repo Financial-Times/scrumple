@@ -22,7 +22,6 @@ use walkdir::WalkDir;
 #[test]
 fn test_bundle_snapshots() {
     let entry_point = Path::new("examples/one-file/index.js");
-    npm_install(entry_point.parent().unwrap());
     let options = InputOptions::default();
     let output = "examples/one-file/bumble.js";
     let map_output = SourceMapOutput::Suppressed;
