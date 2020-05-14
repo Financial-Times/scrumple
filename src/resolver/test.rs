@@ -2295,8 +2295,7 @@ fn test_resolve_consistency() {
         };
 
         // TODO figure out which of test_resolve_with tests hangs
-        // test_resolve_with(&mut append);
-        //
+        test_resolve_with(&mut append);
         test_resolve_unicode_with(&mut append);
         test_browser_with(&mut append);
         test_resolve_bower_with(&mut append);
@@ -2361,27 +2360,12 @@ fn test_resolve_consistency() {
             .write_all(&make_source(base, cases))
             .unwrap();
 
-        let path = file.path().to_str().unwrap();
         let output;
         let to_file = tempfile::Builder::new()
             .suffix(ext)
             .tempfile_in(&ctx_dir)
             .unwrap();
         let to_path = to_file.path().to_str().unwrap();
-
-        // let mut browserify_path = fixture_path();
-        // browserify_path.push("tools/node_modules/.bin/browserify");
-        let browserify_path = base.join("tools/node_modules/.bin/browserify");
-        dbg!(browserify_path.exists());
-        let ok = process::Command::new(browserify_path)
-            .stdout(process::Stdio::piped())
-            .args(&[&path, &to_path])
-            .status()
-            .expect("failed to run browserify")
-            .success();
-        if !ok {
-            panic!("browserify failed");
-        }
 
         output = process::Command::new("node")
             .args(&[&to_path])
@@ -2390,7 +2374,7 @@ fn test_resolve_consistency() {
 
         if !output.status.success() {
             io::stderr().write(&output.stderr).unwrap();
-            panic!("tests are inconsistent with node/browserify");
+            panic!("tests are inconsistent with node");
         }
     }
 
@@ -2421,6 +2405,5 @@ fn test_resolve_consistency() {
             }
         }
     }
-    crate::npm_install(&base_dir.path().join("tools"));
     test_file_map(base_dir.path(), &assertions);
 }
