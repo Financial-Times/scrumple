@@ -215,6 +215,7 @@ fn run() -> Result<(), CliError> {
     let mut quiet_watch = false;
     let mut external = FnvHashSet::default();
     let mut forced_npm_deps = FnvHashSet::default();
+    let mut wants_npm_dev_deps = false;
 
     // TODO replace this arg parser
     let mut iter = opts::args();
@@ -278,7 +279,7 @@ fn run() -> Result<(), CliError> {
                 )
             }
             "-N" | "--allow-npm-dev-deps" => {
-                forced_npm_deps = gather_npm_dev_deps(&input);
+                wants_npm_dev_deps = true;
             }
             "-o" | "--output" => {
                 if output.is_some() {
@@ -321,6 +322,10 @@ fn run() -> Result<(), CliError> {
             }
         }
     };
+
+    if wants_npm_dev_deps {
+        forced_npm_deps = gather_npm_dev_deps(&input)?;
+    }
 
     let input_options = InputOptions {
         package_manager,
