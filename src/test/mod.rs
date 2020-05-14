@@ -8,6 +8,7 @@ use super::*;
 use fnv::{FnvHashMap, FnvHashSet};
 use indoc::indoc;
 use input_options::*;
+use insta::assert_snapshot;
 use manifest::{BrowserSubstitution, BrowserSubstitutionMap, PackageInfo};
 use matches::assert_matches;
 use path_ext::*;
@@ -17,6 +18,20 @@ use std::path::Path;
 use std::{ffi, fs, process};
 use vlq::Vlq;
 use walkdir::WalkDir;
+
+#[test]
+fn test_bundle_snapshots() {
+    let entry_point = Path::new("examples/one-file/index.js");
+    npm_install(entry_point.parent().unwrap());
+    let options = InputOptions::default();
+    let output = "examples/one-file/bumble.js";
+    let map_output = SourceMapOutput::Suppressed;
+    let _ = bundle(&entry_point, options, &output, &map_output).unwrap();
+    assert_snapshot!(
+        "one-file bundle",
+        std::fs::read_to_string("examples/one-file/bumble.js").unwrap()
+    );
+}
 
 #[test]
 fn test_count_lines() {

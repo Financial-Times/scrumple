@@ -9,3 +9,4 @@ node_modules
 !examples/npm-dev*/**/node_modules
 !fixtures/**/node_modules
 !fixtures/tools/node_modules
+examples/*/bumble.js
