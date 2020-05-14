@@ -97,6 +97,7 @@ pub fn to_quoted_json_string(s: &str) -> String {
 struct DependencyManifest {
     dependencies: Option<FnvHashMap<String, String>>,
     dev_dependencies: Option<FnvHashMap<String, String>>,
+    optional_dependencies: Option<FnvHashMap<String, String>>,
 }
 
 fn find_node_module(path: &PathBuf, name: &str) -> Option<PathBuf> {
