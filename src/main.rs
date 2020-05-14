@@ -97,6 +97,7 @@ pub fn to_quoted_json_string(s: &str) -> String {
 struct DependencyManifest {
     dependencies: Option<FnvHashMap<String, String>>,
     dev_dependencies: Option<FnvHashMap<String, String>>,
+    optional_dependencies: Option<FnvHashMap<String, String>>,
 }
 
 fn find_node_module(path: &PathBuf, name: &str) -> Option<PathBuf> {
@@ -123,27 +124,53 @@ fn find_node_module(path: &PathBuf, name: &str) -> Option<PathBuf> {
     }
 }
 
-fn recurse_npm_deps(root: &PathBuf, mut names: &mut FnvHashSet<String>) {
+fn recurse_npm_deps(root: &PathBuf, mut names: &mut FnvHashSet<String>) -> Result<(), CliError> {
     let mut pj_path = root.clone();
     pj_path.push("package.json");
 
-    let pj_file = std::fs::File::open(&pj_path).unwrap();
+    let pj_file = std::fs::File::open(&pj_path).expect(&format!(
+        "no package.json at {:?}. have you run `npm install`?",
+        pj_path
+    ));
     let pj: DependencyManifest = serde_json::from_reader(pj_file).unwrap();
 
     match &pj.dependencies {
         Some(deps) => {
             for key in deps.keys() {
+                if names.contains(key) {
+                    // A circular dependency, how exciting
+                    continue;
+                }
                 &names.insert(key.to_owned());
-                let dep_path = find_node_module(root, &key).unwrap();
-                recurse_npm_deps(&dep_path, &mut names);
+                let dep_path = find_node_module(root, &key);
+                match dep_path {
+                    Some(dep_path) => {
+                        recurse_npm_deps(&dep_path, &mut names)?;
+                    }
+                    None => {
+                        match &pj.optional_dependencies {
+                            Some(optionals) => {
+                                if optionals.contains_key(key) {
+                                    continue;
+                                }
+                            }
+                            None => {}
+                        }
+                        return Err(CliError::ModuleNotFound {
+                            context: root.to_owned(),
+                            name: key.to_owned(),
+                        });
+                    }
+                }
             }
         }
         None => {}
     }
+    Ok(())
 }
 
-pub fn gather_npm_dev_deps(input: &Option<String>) -> FnvHashSet<String> {
-    let mut pj_path = PathBuf::from(input.as_ref().unwrap());
+pub fn gather_npm_dev_deps(input: &String) -> Result<FnvHashSet<String>, CliError> {
+    let mut pj_path = std::path::PathBuf::from(input);
     let mut dev_deps_and_their_deps = FnvHashSet::default();
 
     loop {
@@ -167,12 +194,12 @@ pub fn gather_npm_dev_deps(input: &Option<String>) -> FnvHashSet<String> {
                 dep_root.pop();
                 dep_root.push("node_modules");
                 dep_root.push(key);
-                recurse_npm_deps(&dep_root, &mut dev_deps_and_their_deps);
+                recurse_npm_deps(&dep_root, &mut dev_deps_and_their_deps)?;
             }
         }
         None => {}
     }
-    dev_deps_and_their_deps
+    Ok(dev_deps_and_their_deps)
 }
 
 fn run() -> Result<(), CliError> {
@@ -188,6 +215,7 @@ fn run() -> Result<(), CliError> {
     let mut quiet_watch = false;
     let mut external = FnvHashSet::default();
     let mut forced_npm_deps = FnvHashSet::default();
+    let mut wants_npm_dev_deps = false;
 
     // TODO replace this arg parser
     let mut iter = opts::args();
@@ -251,7 +279,7 @@ fn run() -> Result<(), CliError> {
                 )
             }
             "-N" | "--allow-npm-dev-deps" => {
-                forced_npm_deps = gather_npm_dev_deps(&input);
+                wants_npm_dev_deps = true;
             }
             "-o" | "--output" => {
                 if output.is_some() {
@@ -294,6 +322,10 @@ fn run() -> Result<(), CliError> {
             }
         }
     };
+
+    if wants_npm_dev_deps {
+        forced_npm_deps = gather_npm_dev_deps(&input)?;
+    }
 
     let input_options = InputOptions {
         package_manager,

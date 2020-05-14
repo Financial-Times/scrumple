@@ -1,0 +1,9 @@
+{
+	"name": "none",
+	"dependencies": {
+		"this is a dependency, not a devDependency": "0.0.0"
+	},
+	"devDependencies": {
+		"yay": "0.0.0"
+	}
+}

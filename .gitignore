@@ -5,6 +5,7 @@ node_modules
 *.sublime-workspace
 .DS_Store
 .cargo
-!pax/examples/browser/**/node_modules
-!pax/fixtures/**/node_modules
-pax/fixtures/tools/node_modules
+!examples/browser/**/node_modules
+!examples/npm-dev*/**/node_modules
+!fixtures/**/node_modules
+!fixtures/tools/node_modules

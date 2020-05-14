@@ -5,7 +5,7 @@
 extern crate test;
 
 use super::*;
-use fnv::FnvHashMap;
+use fnv::{FnvHashMap, FnvHashSet};
 use indoc::indoc;
 use input_options::*;
 use manifest::{BrowserSubstitution, BrowserSubstitutionMap, PackageInfo};
@@ -31,6 +31,58 @@ fn test_count_lines() {
     assert_eq!(count_lines("this is a line\r\n"), 2);
     assert_eq!(count_lines("\r\nthis is a line"), 2);
     assert_eq!(count_lines("these\nare\r\nlines"), 3);
+}
+
+#[test]
+fn test_gather_npm_dev_deps_finds_complicated_deps() {
+    let mut expected = FnvHashSet::<String>::default();
+    let names = [
+        "@with-org-name/nested",
+        "optional",
+        "non-optional",
+        "yay",
+        "mutual-a",
+        "self",
+        "circular",
+        "@with-org-name/root",
+        "mutual-b",
+    ];
+    for package in names.iter() {
+        expected.insert(package.to_string());
+    }
+    let found =
+        gather_npm_dev_deps(&"examples/npm-dev-dep-with-complicated-deps/index.js".to_owned())
+            .unwrap();
+    let found_deep_entry =
+        gather_npm_dev_deps(&"examples/npm-dev-dep-with-complicated-deps/deep/entry.js".to_owned())
+            .unwrap();
+    assert_eq!(expected, found);
+    assert_eq!(
+        expected, found_deep_entry,
+        "didn't go up looking for the nearest package.json"
+    );
+}
+
+#[test]
+fn test_gather_npm_dev_deps_doesnt_fail_on_missing_optionals() {
+    assert!(
+        gather_npm_dev_deps(
+            &"examples/npm-dev-dep-with-missing-optional-deps/index.js".to_owned(),
+        )
+        .is_ok(),
+        "failed, tried to analyse a missing optional dependency. should have ignored it",
+    );
+}
+
+#[test]
+fn test_gather_npm_dev_deps_fails_on_missing_required_deps() {
+    assert!(
+        gather_npm_dev_deps(
+            &"examples/npm-dev-dep-with-missing-required-deps/index.js".to_owned(),
+        )
+        .is_err(),
+        "skipped a required (non-optionalDependencies) dependency",
+    );
 }
 
 use cfg_if::cfg_if;
