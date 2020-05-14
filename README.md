@@ -16,6 +16,14 @@ Scrumple is based on a now-deleted tool called Pax, but we have added support fo
 
 This is a developer tool, not production software. It's designed to give the developer super-fast feedback when building components, not for building a production application.
 
+## Installation
+
+Scrumple is available to install via npm:
+
+```
+npm install -g scrumple
+```
+
 ## Usage
 
 ```
@@ -69,3 +77,23 @@ Options:
     -v, --version
         Print version information.
 ```
+
+## Development
+
+Scrumple is written in [rust](https://www.rust-lang.org/) :crab:
+
+### Updating snapshots
+
+Scrumple makes use of [insta](https://docs.rs/insta/0.16.0/insta/) for snapshots.
+
+If you have changed some code and `cargo test` is failing, you can check the new snapshot is correct (which is available at `src/test/$snapshot_name.snap.new`) and then replace the old one.
+
+Insta provides a tool which gives you a lovely interface for doing this, instead of doing it manually. It's called `cargo-insta`.
+
+```
+cargo install cargo-insta
+cargo test
+cargo insta review
+```
+
+This will bring up a menu that lets you review and confirm the snapshots in your terminal.
