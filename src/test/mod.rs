@@ -28,7 +28,9 @@ fn test_bundle_snapshots() {
     let _ = bundle(&entry_point, options, &output, &map_output).unwrap();
     assert_snapshot!(
         "one-file bundle",
-        std::fs::read_to_string("examples/one-file/bumble.js").unwrap()
+        std::fs::read_to_string("examples/one-file/bumble.js")
+            .unwrap()
+            .replace("\r\n", "\n")
     );
 }
 
