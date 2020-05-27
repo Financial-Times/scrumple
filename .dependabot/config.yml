@@ -1,6 +1,6 @@
 version: 1
 update_configs:
-  - package_manager: "javascript"
+  - package_manager: "rust:cargo"
     directory: "/"
     update_schedule: "live"
     automerged_updates:
