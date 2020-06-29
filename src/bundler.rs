@@ -5,7 +5,7 @@ use crate::source_maps::SourceMapOutput;
 use crate::worker::{Work, WorkDone, Worker, WorkerInit};
 use crate::writer::Writer;
 use crate::CliError;
-use crossbeam::sync::SegQueue;
+use crossbeam::queue::SegQueue;
 use fnv::FnvHashMap;
 use matches::debug_assert_matches;
 use std::path::{Path, PathBuf};
