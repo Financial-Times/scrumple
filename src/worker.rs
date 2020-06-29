@@ -173,12 +173,11 @@ impl Worker {
             if !self.queue.is_empty {
                 return self.queue.pop();
             } else {
-                    if self.quit.load(Ordering::Relaxed) {
-                        return None;
-                    } else {
-                        thread::yield_now();
-                        // thread::sleep(time::Duration::from_millis(1));
-                    }
+                if self.quit.load(Ordering::Relaxed) {
+                    return None;
+                } else {
+                    thread::yield_now();
+                    // thread::sleep(time::Duration::from_millis(1));
                 }
             }
         }
