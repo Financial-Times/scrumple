@@ -170,8 +170,8 @@ impl Worker {
 
     fn get_work(&mut self) -> Option<Work> {
         loop {
-            if !self.queue.is_empty {
-                return self.queue.pop();
+            if !self.queue.is_empty() {
+                return Some(self.queue.pop().unwrap());
             } else {
                 if self.quit.load(Ordering::Relaxed) {
                     return None;
