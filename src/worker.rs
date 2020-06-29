@@ -3,7 +3,7 @@ use crate::input_options::InputOptions;
 use crate::modules::{self, ModuleInfo};
 use crate::resolver::{Resolved, Resolver};
 use crate::CliError;
-use crossbeam::sync::SegQueue;
+use crossbeam::queue::SegQueue;
 use esparse::lex;
 use fnv::FnvHashSet;
 use matches::matches;
