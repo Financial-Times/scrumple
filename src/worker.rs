@@ -172,7 +172,7 @@ impl Worker {
         loop {
             match self.queue.pop() {
                 Ok(work) => return Some(work),
-                Err(e) => {
+                Err(_) => {
                     if self.quit.load(Ordering::Relaxed) {
                         return None;
                     } else {
