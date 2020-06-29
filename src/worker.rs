@@ -170,14 +170,15 @@ impl Worker {
 
     fn get_work(&mut self) -> Option<Work> {
         loop {
-            if !self.queue.is_empty() {
-                return Some(self.queue.pop().unwrap());
-            } else {
-                if self.quit.load(Ordering::Relaxed) {
-                    return None;
-                } else {
-                    thread::yield_now();
-                    // thread::sleep(time::Duration::from_millis(1));
+            match self.queue.pop() {
+                Some(work) => return Some(work),
+                Err => {
+                    if self.quit.load(Ordering::Relaxed) {
+                        return None;
+                    } else {
+                        thread::yield_now();
+                        // thread::sleep(time::Duration::from_millis(1));
+                    }
                 }
             }
         }
