@@ -171,8 +171,8 @@ impl Worker {
     fn get_work(&mut self) -> Option<Work> {
         loop {
             match self.queue.pop() {
-                Some(work) => return Some(work),
-                Err => {
+                Ok(work) => return Some(work),
+                Err(e) => {
                     if self.quit.load(Ordering::Relaxed) {
                         return None;
                     } else {
