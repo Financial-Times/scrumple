@@ -3,7 +3,7 @@ use crate::input_options::InputOptions;
 use crate::modules::{self, ModuleInfo};
 use crate::resolver::{Resolved, Resolver};
 use crate::CliError;
-use crossbeam::sync::SegQueue;
+use crossbeam::queue::SegQueue;
 use esparse::lex;
 use fnv::FnvHashSet;
 use matches::matches;
@@ -170,9 +170,9 @@ impl Worker {
 
     fn get_work(&mut self) -> Option<Work> {
         loop {
-            match self.queue.try_pop() {
-                Some(work) => return Some(work),
-                None => {
+            match self.queue.pop() {
+                Ok(work) => return Some(work),
+                Err(_) => {
                     if self.quit.load(Ordering::Relaxed) {
                         return None;
                     } else {
