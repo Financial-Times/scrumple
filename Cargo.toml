@@ -42,11 +42,11 @@ notify = "4.0"
 memchr = "2.0.1"
 base64 = "0.12.3"
 walkdir = "2.3.1"
-indoc = "0.3.6"
+indoc = "1.0.2"
 
 [dev-dependencies]
 cfg-if = "0.1.4"
 tempfile = "3"
-indoc = "0.3"
+indoc = "1.0"
 walkdir = "2"
 insta = "0.16.1"
