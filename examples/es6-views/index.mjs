@@ -1,4 +1,4 @@
-import { counter, incCounter } from './counter'
+import { counter, incCounter } from './counter.js'
 
 console.log(counter) // 3
 incCounter()

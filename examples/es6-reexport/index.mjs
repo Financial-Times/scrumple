@@ -1,4 +1,4 @@
-import CONST, {c1, i1, counter, incCounter, SOMETHING} from './outer'
+import CONST, {c1, i1, counter, incCounter, SOMETHING} from './outer.js'
 
 console.log(CONST)
 console.log(SOMETHING)
