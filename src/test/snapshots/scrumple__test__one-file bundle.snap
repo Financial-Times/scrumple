@@ -1,25 +1,25 @@
 ---
 source: src/test/mod.rs
-expression: "std::fs::read_to_string(\"examples/one-file/bumble.js\").unwrap()"
+expression: "std::fs::read_to_string(\"examples/one-file/bumble.js\").unwrap().replace(\"\\r\\n\",\n                                                                        \"\\n\")"
 ---
 (function() {
-  const Scrumple = {}
-  Scrumple.baseRequire = typeof require !== "undefined" ? require : n => {
-    throw new Error(`Could not resolve module name: ${n}`)
+  var Scrumple = {}
+  Scrumple.baseRequire = typeof require !== "undefined" ? require : function(n) {
+    throw new Error("Could not resolve module name: " + n)
   }
-  Scrumple.ignored = () => {}
+  Scrumple.ignored = function(){}
   Scrumple.ignored.deps = {}
   Scrumple.ignored.filename = ''
   Scrumple.modules = {}
   Scrumple.files = {}
   Scrumple.mains = {}
-  Scrumple.resolve = (base, then) => {
+  Scrumple.resolve = function (base, then) {
     base = base.split('/')
     base.shift()
-    for (const p of then.split('/')) {
+    then.split('/').forEach(function(p) {
       if (p === '..') base.pop()
       else if (p !== '.') base.push(p)
-    }
+    })
     return '/' + base.join('/')
   }
   Scrumple.Module = function Module(filename, parent) {
@@ -30,26 +30,26 @@ expression: "std::fs::read_to_string(\"examples/one-file/bumble.js\").unwrap()"
     this.children = []
     this.exports = {}
   }
-  Scrumple.makeRequire = self => {
-    const require = m => require._module(m).exports
+  Scrumple.makeRequire = function (self) {
+    var require = function(m) { return require._module(m).exports }
     require._deps = {}
     require.main = self
 
-    require._esModule = m => {
-      const mod = require._module(m)
+    require._esModule = function (m) {
+      var mod = require._module(m)
       return mod.exports.__esModule ? mod.exports : {
-        get default() {return mod.exports},
+        get default() {return mod.exports}
       }
     }
-    require._module = m => {
-      let fn = self ? require._deps[m] : Scrumple.main
+    require._module = function (m) {
+      var fn = self ? require._deps[m] : Scrumple.main
       if (fn == null) {
-        const module = {exports: Scrumple.baseRequire(m)}
+        var module = {exports: Scrumple.baseRequire(m)}
         require._deps[m] = {module: module}
         return module
       }
       if (fn.module) return fn.module
-      const module = new Scrumple.Module(fn.filename, self)
+      var module = new Scrumple.Module(fn.filename, self)
       fn.module = module
       module.require = Scrumple.makeRequire(module)
       module.require._deps = fn.deps
