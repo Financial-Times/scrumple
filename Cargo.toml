@@ -45,7 +45,7 @@ walkdir = "2.3.1"
 indoc = "1.0.2"
 
 [dev-dependencies]
-cfg-if = "0.1.4"
+cfg-if = "1.0.0"
 tempfile = "3"
 indoc = "1.0"
 walkdir = "2"
