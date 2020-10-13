@@ -42,7 +42,7 @@ notify = "4.0"
 memchr = "2.0.1"
 base64 = "0.13.0"
 walkdir = "2.3.1"
-indoc = "1.0.2"
+indoc = "1.0.3"
 
 [dev-dependencies]
 cfg-if = "1.0.0"
