@@ -6,7 +6,7 @@ version = "0.7.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8716408b8bc624ed7f65d223ddb9ac2d044c0547b6fa4b0d554f3a9540496ada"
 dependencies = [
- "memchr 2.3.3",
+ "memchr 2.3.4",
 ]
 
 [[package]]
@@ -352,9 +352,9 @@ dependencies = [
 
 [[package]]
 name = "memchr"
-version = "2.3.3"
+version = "2.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3728d817d99e5ac407411fa471ff9800a778d88a24685968b36824eaf4bee400"
+checksum = "0ee1c47aaa256ecabcaea351eae4a9b01ef39ed810004e298d2511ed284b1525"
 
 [[package]]
 name = "memoffset"
@@ -525,7 +525,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "38cf2c13ed4745de91a5eb834e11c00bcc3709e773173b2ce4c56c9fbde04b9c"
 dependencies = [
  "aho-corasick",
- "memchr 2.3.3",
+ "memchr 2.3.4",
  "regex-syntax",
  "thread_local",
 ]
@@ -579,7 +579,7 @@ dependencies = [
  "insta",
  "lazy_static",
  "matches",
- "memchr 2.3.3",
+ "memchr 2.3.4",
  "notify",
  "num_cpus",
  "regex",
