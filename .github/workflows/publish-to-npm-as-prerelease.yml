@@ -68,7 +68,7 @@ jobs:
         cd npm/${{ matrix.npm-name }}/
         ref='${{github.ref}}'
         npm version ${ref#refs/tags/}
-        npm publish --access public
+        npm publish --access public --tag prerelease
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
     - name: Publish meta-package to npm
@@ -81,7 +81,7 @@ jobs:
         then
           npx npm-check-updates -u
           npm update
-          npm publish --access public
+          npm publish --access public --tag prerelease
         fi
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
