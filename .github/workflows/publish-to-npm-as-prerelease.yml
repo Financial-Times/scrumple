@@ -1,0 +1,87 @@
+name: Publish to npm as prerelease version
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+-*' # prerelease tag
+jobs:
+  publish-prerelease:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macOS-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            rust: stable
+            target: x86_64-unknown-linux-gnu
+            bin: scrumple
+            name: scrumple-linux64.tar.gz
+            npm-name: scrumple-linux-64
+          - os: macOS-latest
+            rust: stable
+            target: x86_64-apple-darwin
+            bin: scrumple
+            name: scrumple-osx.tar.gz
+            npm-name: scrumple-darwin
+          - os: windows-latest
+            rust: stable
+            target: x86_64-pc-windows-msvc
+            bin: scrumple.exe
+            name: scrumple-windows64.zip
+            npm-name: scrumple-windows-64
+    runs-on: ${{ matrix.os }}
+    steps:
+    - name: Setup Rust
+      uses: hecrj/setup-rust-action@master
+      with:
+        rust-version: ${{ matrix.rust }}
+    - name: Configure Rustup
+      run: rustup target add ${{ matrix.target }}
+    - name: Checkout
+      uses: actions/checkout@v1
+    - name: Build
+      run: cargo build --release --target ${{ matrix.target }}
+    - name: Package
+      shell: bash
+      run: |
+        strip target/${{ matrix.target }}/release/${{ matrix.bin }}
+        cd target/${{ matrix.target }}/release
+        if [[ "${{ matrix.os }}" == "windows-latest" ]]
+        then
+          7z a ../../../${{ matrix.name }} ${{ matrix.bin }}
+        else
+          tar czvf ../../../${{ matrix.name }} ${{ matrix.bin }}
+        fi
+        cd -
+    - name: Publish to GitHub
+      uses: softprops/action-gh-release@v1
+      with:
+          files: 'scrumple*'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - uses: actions/setup-node@v1
+      with:
+        node-version: '12.x'
+        registry-url: 'https://registry.npmjs.org'
+    - name: package sub-packages for npm
+      shell: bash
+      run: |
+        cp target/${{ matrix.target }}/release/${{ matrix.bin }} npm/${{ matrix.npm-name }}/
+        cd npm/${{ matrix.npm-name }}/
+        ref='${{github.ref}}'
+        npm version ${ref#refs/tags/}
+        npm publish --access public
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    - name: Publish meta-package to npm
+      shell: bash
+      run: |
+        cd npm/
+        ref='${{github.ref}}'
+        npm version ${ref#refs/tags/}
+        if [[ "${{ matrix.os }}" == "windows-latest" ]]
+        then
+          npx npm-check-updates -u
+          npm update
+          npm publish --access public
+        fi
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
