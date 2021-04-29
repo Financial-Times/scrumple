@@ -45,7 +45,7 @@ jobs:
       uses: hecrj/setup-rust-action@v1
       with:
         rust-version: ${{ matrix.rust }}
-    - uses: actions/setup-node@v1
+    - uses: actions/setup-node@v2.1.5
       with:
         node-version: '10.x'
     - name: Checkout
