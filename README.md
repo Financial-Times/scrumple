@@ -1,3 +1,11 @@
+🚨 :warning: **scrumple has been deprecated** :warning: 🚨
+
+_scrumple was helpful when we needed to build bower components, but those days are now behind us._
+
+_try [esbuild](https://esbuild.github.io)!_
+
+***
+
 # Scrumple
 
 A fast (and scrappy) JavaScript bundler for developing Origami components.
